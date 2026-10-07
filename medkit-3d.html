@@ -1,0 +1,1290 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Medical Kit 3D</title>
+<style>
+  :root{
+    --bg:#d9d5ce; --ink:#1d1d1f; --muted:#55555a; --panel:rgba(255,255,255,.74);
+    --line:rgba(0,0,0,.08); --btn:rgba(255,255,255,.9); --accent:#b3141b; --accent-ink:#fff;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --ink:#f2f2f4; --muted:#b0b0b6; --panel:rgba(26,26,28,.74); --line:rgba(255,255,255,.1); --btn:rgba(50,50,54,.9);
+    }
+  }
+  :root[data-theme="dark"]{
+    --ink:#f2f2f4; --muted:#b0b0b6; --panel:rgba(26,26,28,.74); --line:rgba(255,255,255,.1); --btn:rgba(50,50,54,.9);
+  }
+  html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--ink);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  #c{display:block;width:100%;height:100%;touch-action:none;outline:none}
+  .ui{position:fixed;left:16px;right:16px;top:16px;pointer-events:none;display:flex;justify-content:flex-start}
+  .card{pointer-events:auto;background:var(--panel);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+    border:1px solid var(--line);border-radius:14px;padding:12px 14px;max-width:440px;box-shadow:0 6px 24px rgba(0,0,0,.12)}
+  h1{font-size:15px;margin:0 0 8px;letter-spacing:.2px}
+  .btns{display:flex;flex-wrap:wrap;gap:6px}
+  button{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--btn);color:var(--ink);
+    padding:7px 11px;border-radius:999px;cursor:pointer}
+  button.on{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+  #info{font-size:12.5px;line-height:1.45;color:var(--muted);margin:9px 0 0}
+  .hint{position:fixed;left:0;right:0;bottom:12px;text-align:center;font-size:12px;color:#5a5650;pointer-events:none}
+  #load{position:fixed;inset:0;display:grid;place-items:center;font-size:14px;color:#55514b;pointer-events:none}
+</style>
+</head>
+<body>
+<canvas id="c" tabindex="0"></canvas>
+<div id="load">Building models…</div>
+<div class="ui">
+  <div class="card">
+    <h1>Medical kit — 3D models</h1>
+    <div class="btns" id="btns">
+      <button data-v="all" class="on">All</button>
+      <button data-v="bag">White medkit bag</button>
+      <button data-v="band">Bandages</button>
+      <button data-v="pack">Large medkit backpack</button>
+      <button id="spin">Auto-rotate</button>
+    </div>
+    <p id="info"></p>
+  </div>
+</div>
+<div class="hint">Drag to orbit · scroll / pinch to zoom · right-drag to pan</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+
+/* ------------------------------------------------------------------ renderer / scene */
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 0.82;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const ANISO = renderer.capabilities.getMaxAnisotropy();
+
+const scene = new THREE.Scene();
+const BG = 0xd9d5ce;
+scene.background = new THREE.Color(BG);
+scene.fog = new THREE.Fog(BG, 24, 48);
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
+
+const camera = new THREE.PerspectiveCamera(35, innerWidth / innerHeight, 0.05, 200);
+camera.position.set(0, 7.5, 15);
+const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true;
+controls.target.set(0, 1.3, 0);
+controls.minDistance = 1.2;
+controls.maxDistance = 32;
+controls.maxPolarAngle = Math.PI * 0.49;
+controls.autoRotateSpeed = 1.2;
+
+scene.add(new THREE.HemisphereLight(0xffffff, 0x8a8178, 0.35));
+const key = new THREE.DirectionalLight(0xfff3e4, 3.0);
+key.position.set(-7, 13, 9);
+key.castShadow = true;
+const SM = innerWidth < 800 ? 2048 : 4096;
+key.shadow.mapSize.set(SM, SM);
+Object.assign(key.shadow.camera, { left: -10, right: 10, top: 10, bottom: -10, near: 1, far: 40 });
+key.shadow.bias = -0.0003;
+key.shadow.normalBias = 0.015;
+key.shadow.radius = 5;
+scene.add(key);
+const rim = new THREE.DirectionalLight(0xdde7ff, 0.9);
+rim.position.set(9, 7, -11);
+scene.add(rim);
+const fill = new THREE.DirectionalLight(0xffffff, 0.35);
+fill.position.set(6, 3, 10);
+scene.add(fill);
+
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(240, 240),
+  new THREE.MeshStandardMaterial({ color: 0xbdb7ad, roughness: .94, envMapIntensity: .5 }));
+floor.rotation.x = -Math.PI / 2;
+floor.receiveShadow = true;
+scene.add(floor);
+
+/* ------------------------------------------------------------------ math helpers */
+const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
+const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
+const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+function hash3(x, y, z) { const h = Math.sin(x * 127.1 + y * 311.7 + z * 74.7) * 43758.5453; return h - Math.floor(h); }
+function noise3(x, y, z) {
+  const X = Math.floor(x), Y = Math.floor(y), Z = Math.floor(z);
+  const fx = x - X, fy = y - Y, fz = z - Z;
+  const u = fx * fx * (3 - 2 * fx), v = fy * fy * (3 - 2 * fy), w = fz * fz * (3 - 2 * fz);
+  const L = (a, b, t) => a + (b - a) * t;
+  return L(
+    L(L(hash3(X, Y, Z), hash3(X + 1, Y, Z), u), L(hash3(X, Y + 1, Z), hash3(X + 1, Y + 1, Z), u), v),
+    L(L(hash3(X, Y, Z + 1), hash3(X + 1, Y, Z + 1), u), L(hash3(X, Y + 1, Z + 1), hash3(X + 1, Y + 1, Z + 1), u), v), w);
+}
+const fbm = (x, y, z) => noise3(x, y, z) * .55 + noise3(x * 2.07 + 5.2, y * 2.07, z * 2.07) * .3 + noise3(x * 4.3, y * 4.3 + 1.7, z * 4.3) * .15;
+
+function basisMatrix(p, x, y) {
+  const X = x.clone().normalize();
+  const Z = new THREE.Vector3().crossVectors(X, y).normalize();
+  const Y = new THREE.Vector3().crossVectors(Z, X);
+  return new THREE.Matrix4().makeBasis(X, Y, Z).setPosition(p);
+}
+function place(obj, p, x, y) { basisMatrix(p, x, y).decompose(obj.position, obj.quaternion, obj.scale); return obj; }
+function mesh(geo, mat) { const m = new THREE.Mesh(geo, mat); m.castShadow = true; m.receiveShadow = true; return m; }
+
+/* ------------------------------------------------------------------ procedural textures */
+function mkCanvas(w, h = w) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
+function tex(c, { repeat = [1, 1], color = true, clampEdge = false } = {}) {
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = clampEdge ? THREE.ClampToEdgeWrapping : THREE.RepeatWrapping;
+  t.repeat.set(repeat[0], repeat[1]);
+  t.anisotropy = ANISO;
+  if (color) t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+function addNoise(g, w, h, amt) {
+  const d = g.getImageData(0, 0, w, h);
+  for (let i = 0; i < d.data.length; i += 4) {
+    const n = (Math.random() - .5) * amt;
+    d.data[i] += n; d.data[i + 1] += n; d.data[i + 2] += n;
+  }
+  g.putImageData(d, 0, 0);
+}
+function lighten(src, a) {
+  const c = mkCanvas(src.width, src.height), g = c.getContext('2d');
+  g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
+  g.globalAlpha = a; g.drawImage(src, 0, 0);
+  return c;
+}
+// basket-weave nylon (cordura / ripstop)
+function weaveCanvas(size, n, ripstop) {
+  const c = mkCanvas(size), g = c.getContext('2d'), cs = size / n;
+  g.fillStyle = '#6e6e6e'; g.fillRect(0, 0, size, size);
+  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+    const x = i * cs, y = j * cs, hor = (i + j) % 2 === 0;
+    for (let k = 0; k < 2; k++) {
+      const o = k * cs / 2, t = cs / 2;
+      const gr = hor ? g.createLinearGradient(0, y + o, 0, y + o + t) : g.createLinearGradient(x + o, 0, x + o + t, 0);
+      gr.addColorStop(0, '#4e4e4e'); gr.addColorStop(.5, '#dedede'); gr.addColorStop(1, '#4e4e4e');
+      g.fillStyle = gr;
+      hor ? g.fillRect(x + .7, y + o, cs - 1.4, t) : g.fillRect(x + o, y + .7, t, cs - 1.4);
+    }
+  }
+  if (ripstop) {
+    const s = size / ripstop;
+    g.fillStyle = 'rgba(255,255,255,.6)';
+    for (let k = 0; k < ripstop; k++) { g.fillRect(k * s, 0, 3, size); g.fillRect(0, k * s, size, 3); }
+  }
+  addNoise(g, size, size, 34);
+  return c;
+}
+// woven webbing: ribs along the length + twill
+function webbingCanvas() {
+  const s = 128, c = mkCanvas(s), g = c.getContext('2d');
+  g.fillStyle = '#808080'; g.fillRect(0, 0, s, s);
+  const n = 16;
+  for (let i = 0; i < n; i++) {
+    const x = i * s / n, gr = g.createLinearGradient(x, 0, x + s / n, 0);
+    gr.addColorStop(0, '#3c3c3c'); gr.addColorStop(.5, '#d6d6d6'); gr.addColorStop(1, '#3c3c3c');
+    g.fillStyle = gr; g.fillRect(x, 0, s / n, s);
+  }
+  g.globalAlpha = .22; g.strokeStyle = '#000'; g.lineWidth = 2;
+  for (let k = -s; k < 2 * s; k += 8) { g.beginPath(); g.moveTo(k, 0); g.lineTo(k + s, s); g.stroke(); }
+  g.globalAlpha = 1;
+  // darker selvedge on both edges
+  g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(0, 0, 5, s); g.fillRect(s - 5, 0, 5, s);
+  addNoise(g, s, s, 24);
+  return c;
+}
+// 3D spacer "airmesh"
+function airmeshCanvas() {
+  const s = 256, c = mkCanvas(s), g = c.getContext('2d');
+  g.fillStyle = '#9a9a9a'; g.fillRect(0, 0, s, s);
+  const r = 9, dx = 2 * r * 1.15, dy = r * 1.75;
+  for (let row = -1; row * dy < s + dy; row++) for (let col = -1; col * dx < s + dx; col++) {
+    const x = col * dx + (row % 2 ? dx / 2 : 0), y = row * dy;
+    const gr = g.createRadialGradient(x, y, 1, x, y, r);
+    gr.addColorStop(0, '#000'); gr.addColorStop(.75, '#1a1a1a'); gr.addColorStop(1, '#9a9a9a');
+    g.fillStyle = gr; g.beginPath(); g.ellipse(x, y, r, r * .8, 0, 0, Math.PI * 2); g.fill();
+  }
+  addNoise(g, s, s, 20);
+  return c;
+}
+// braided paracord
+function braidCanvas(base, tracer) {
+  const s = 64, c = mkCanvas(s), g = c.getContext('2d');
+  g.fillStyle = base; g.fillRect(0, 0, s, s);
+  for (let i = 0; i < 8; i++) {
+    const x = i * 8;
+    g.fillStyle = i % 4 === 0 ? tracer : 'rgba(0,0,0,.28)';
+    g.beginPath(); g.moveTo(x, 0); g.lineTo(x + 4, 0); g.lineTo(x + 4 + 16, 32); g.lineTo(x + 16, 32); g.fill();
+    g.beginPath(); g.moveTo(x + 16, 32); g.lineTo(x + 20, 32); g.lineTo(x + 4, 64); g.lineTo(x, 64); g.fill();
+  }
+  addNoise(g, s, s, 30);
+  return c;
+}
+// cotton gauze: open leno weave (alpha)
+function gauzeMaskCanvas() {
+  const s = 128, c = mkCanvas(s), g = c.getContext('2d');
+  g.fillStyle = '#000'; g.fillRect(0, 0, s, s);
+  g.strokeStyle = '#fff'; g.lineCap = 'round';
+  for (let i = 0; i < 8; i++) {
+    const p = i * 16 + 8;
+    g.lineWidth = 4.5 + Math.random();
+    g.beginPath(); for (let y = 0; y <= s; y += 4) g.lineTo(p + Math.sin(y * .35 + i) * 1.1, y); g.stroke();
+    g.lineWidth = 4 + Math.random();
+    g.beginPath(); for (let x = 0; x <= s; x += 4) g.lineTo(x, p + Math.sin(x * .3 + i * 2) * 1.1); g.stroke();
+  }
+  // stray fibres
+  g.lineWidth = .8; g.globalAlpha = .7;
+  for (let k = 0; k < 40; k++) { const x = Math.random() * s, y = Math.random() * s, a = Math.random() * 6.3;
+    g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * 9, y + Math.sin(a) * 9); g.stroke(); }
+  return c;
+}
+// elastic crepe: crinkled weft
+function crepeCanvas() {
+  const s = 256, c = mkCanvas(s), g = c.getContext('2d');
+  g.fillStyle = '#8a8a8a'; g.fillRect(0, 0, s, s);
+  for (let y = 0; y < s; y += 4) {
+    g.strokeStyle = y % 8 ? '#5a5a5a' : '#c8c8c8'; g.lineWidth = 2.2;
+    g.beginPath();
+    for (let x = 0; x <= s; x += 4) g.lineTo(x, y + Math.sin(x * .19 + y * .7) * 1.6 + Math.sin(x * .05 + y) * 1.2);
+    g.stroke();
+  }
+  g.globalAlpha = .25; g.strokeStyle = '#fff'; g.lineWidth = 1;
+  for (let x = 0; x < s; x += 6) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, s); g.stroke(); }
+  g.globalAlpha = 1;
+  addNoise(g, s, s, 26);
+  return c;
+}
+function fineWeaveCanvas() {
+  const s = 128, c = mkCanvas(s), g = c.getContext('2d');
+  g.fillStyle = '#909090'; g.fillRect(0, 0, s, s);
+  for (let i = 0; i < s; i += 4) {
+    g.fillStyle = 'rgba(255,255,255,.5)'; g.fillRect(i, 0, 2, s);
+    g.fillStyle = 'rgba(0,0,0,.25)'; g.fillRect(0, i + 1, s, 1.5);
+  }
+  addNoise(g, s, s, 30);
+  return c;
+}
+function prismCanvas() {
+  const s = 128, c = mkCanvas(s), g = c.getContext('2d');
+  g.fillStyle = '#9a9a9a'; g.fillRect(0, 0, s, s);
+  for (let y = 0; y < s; y += 8) for (let x = 0; x < s; x += 8) {
+    const o = (y / 8) % 2 ? 4 : 0;
+    g.fillStyle = '#e8e8e8'; g.beginPath(); g.moveTo(x + o, y); g.lineTo(x + o + 4, y + 4); g.lineTo(x + o, y + 8); g.lineTo(x + o - 4, y + 4); g.fill();
+  }
+  addNoise(g, s, s, 18);
+  return c;
+}
+function paperCanvas() {
+  const s = 256, c = mkCanvas(s), g = c.getContext('2d');
+  g.fillStyle = '#808080'; g.fillRect(0, 0, s, s);
+  g.lineWidth = .7;
+  for (let k = 0; k < 500; k++) { const x = Math.random() * s, y = Math.random() * s, a = Math.random() * 6.3, l = 3 + Math.random() * 10;
+    g.strokeStyle = Math.random() < .5 ? 'rgba(255,255,255,.35)' : 'rgba(0,0,0,.25)';
+    g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l); g.stroke(); }
+  addNoise(g, s, s, 20);
+  return c;
+}
+
+/* --- decals (colour + bump drawn by the same function) */
+function decal(W, H, draw) {
+  const cm = mkCanvas(W, H), cb = mkCanvas(W, H);
+  const gm = cm.getContext('2d'), gb = cb.getContext('2d');
+  draw(gm, 'color', W, H);
+  draw(gb, 'bump', W, H);
+  gb.globalCompositeOperation = 'destination-over'; gb.fillStyle = '#000'; gb.fillRect(0, 0, W, H);
+  return { map: tex(cm, { clampEdge: true }), bump: tex(cb, { color: false, clampEdge: true }) };
+}
+function hatch(g, W, H, ang, sp, c1, c2, lw) {
+  g.save(); g.globalCompositeOperation = 'source-atop';
+  g.translate(W / 2, H / 2); g.rotate(ang);
+  const D = Math.hypot(W, H);
+  g.lineWidth = lw;
+  for (let x = -D; x < D; x += sp) {
+    g.strokeStyle = c1; g.beginPath(); g.moveTo(x, -D); g.lineTo(x, D); g.stroke();
+    g.strokeStyle = c2; g.beginPath(); g.moveTo(x + sp / 2, -D); g.lineTo(x + sp / 2, D); g.stroke();
+  }
+  g.restore();
+}
+function rrPath(g, x, y, w, h, r) {
+  g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r);
+  g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath();
+}
+function crossPath(g, cx, cy, s, arm, rad) {
+  const a = arm / 2, h = s / 2;
+  const P = [[-a, -h], [a, -h], [a, -a], [h, -a], [h, a], [a, a], [a, h], [-a, h], [-a, a], [-h, a], [-h, -a], [-a, -a]];
+  g.beginPath(); g.moveTo(cx, cy - h);
+  for (let k = 1; k <= 12; k++) {
+    const p = P[k % 12], q = P[(k + 1) % 12];
+    g.arcTo(cx + p[0], cy + p[1], cx + (p[0] + q[0]) / 2, cy + (p[1] + q[1]) / 2, rad);
+  }
+  g.closePath();
+}
+function decalMat(d, o = {}) {
+  return new THREE.MeshStandardMaterial({
+    map: d.map, bumpMap: d.bump, bumpScale: o.bumpScale ?? 2.5, roughness: o.roughness ?? .78,
+    metalness: 0, alphaTest: .5, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4, ...o.extra
+  });
+}
+
+/* ------------------------------------------------------------------ materials */
+const weave = weaveCanvas(512, 32, 0);
+const ripstop = weaveCanvas(512, 32, 5);
+const webC = webbingCanvas();
+function fabric(color, cnv, rep, o = {}) {
+  return new THREE.MeshPhysicalMaterial({
+    color, roughness: o.rough ?? .86,
+    map: tex(lighten(cnv, o.vary ?? .22), { repeat: [rep, rep] }),
+    bumpMap: tex(cnv, { repeat: [rep, rep], color: false }), bumpScale: o.bump ?? 1.4,
+    sheen: o.sheen ?? .7, sheenRoughness: .55, sheenColor: new THREE.Color(o.sheenColor ?? 0xffffff),
+    side: o.side ?? THREE.FrontSide
+  });
+}
+function webbing(color, o = {}) {
+  return new THREE.MeshPhysicalMaterial({
+    color, roughness: o.rough ?? .78, map: tex(lighten(webC, o.vary ?? .3)), bumpMap: tex(webC, { color: false }),
+    bumpScale: 2, sheen: .5, sheenRoughness: .5, sheenColor: new THREE.Color(o.sheenColor ?? 0xffffff), side: THREE.DoubleSide
+  });
+}
+const M = {
+  whiteFab: fabric(0xf2f1ed, weave, 2.6, { sheenColor: 0xffffff, vary: .2 }),
+  redFab: fabric(0xa8131b, ripstop, 2.4, { sheenColor: 0xff8080, vary: .3 }),
+  blackFab: fabric(0x202124, weave, 2.6, { sheenColor: 0x8a8a8a, vary: .35 }),
+  baseFab: fabric(0x18191b, weave, 4, { sheenColor: 0x666666, vary: .4, rough: .93, bump: 2.2 }),
+  airmesh: new THREE.MeshPhysicalMaterial({ color: 0x3a3c40, roughness: .9, map: tex(lighten(airmeshCanvas(), .55), { repeat: [3, 3] }),
+    bumpMap: tex(airmeshCanvas(), { repeat: [3, 3], color: false }), bumpScale: 4, sheen: .6, sheenColor: new THREE.Color(0x999999) }),
+  pipingRed: webbing(0xb0161e, { sheenColor: 0xff9090 }),
+  webRed: webbing(0xb3141c, { sheenColor: 0xff9090 }),
+  webBlack: webbing(0x1c1d20, { sheenColor: 0x888888 }),
+  tapeRed: webbing(0x9d1219, { sheenColor: 0xff8080 }),
+  tapeBlack: webbing(0x17181a, { sheenColor: 0x777777 }),
+  teethRed: new THREE.MeshPhysicalMaterial({ color: 0xc41c24, roughness: .32, clearcoat: .4 }),
+  teethBlack: new THREE.MeshPhysicalMaterial({ color: 0x141416, roughness: .35, clearcoat: .4 }),
+  plastic: new THREE.MeshPhysicalMaterial({ color: 0x141416, roughness: .48, clearcoat: .25 }),
+  metalSilver: new THREE.MeshStandardMaterial({ color: 0xc8ccd2, metalness: 1, roughness: .24 }),
+  metalDark: new THREE.MeshStandardMaterial({ color: 0x2c2d31, metalness: .85, roughness: .34 }),
+  threadWhite: new THREE.MeshStandardMaterial({ color: 0xeeeeea, roughness: .65 }),
+  threadRed: new THREE.MeshStandardMaterial({ color: 0x7e0c12, roughness: .65 }),
+  threadBlack: new THREE.MeshStandardMaterial({ color: 0x0d0d0e, roughness: .6 }),
+  cordRed: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: .7, map: tex(braidCanvas('#b51820', '#f2f2f2')) }),
+  cordBlack: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: .7, map: tex(braidCanvas('#1d1d20', '#c4161d')) }),
+  reflective: new THREE.MeshStandardMaterial({ color: 0xd7dade, metalness: .7, roughness: .3, bumpMap: tex(prismCanvas(), { repeat: [30, 30], color: false }),
+    bumpScale: 1.2, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }),
+  clearPVC: new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: .06, metalness: 0, transparent: true, opacity: .16, clearcoat: 1,
+    clearcoatRoughness: .05, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -6 }),
+};
+const paperC = paperCanvas();
+M.paper = new THREE.MeshPhysicalMaterial({ color: 0xf7f6f2, roughness: .62, bumpMap: tex(paperC, { repeat: [3, 3], color: false }), bumpScale: .8 });
+
+/* ------------------------------------------------------------------ soft "pillow" box surface */
+class SoftBox {
+  constructor(o) {
+    Object.assign(this, { w: o.w, h: o.h, d: o.d, r: o.r, hw: o.w / 2, hh: o.h / 2, hd: o.d / 2 });
+    this.c = o.center ? o.center.clone() : V();
+    this.bx = o.bx ?? 0; this.bt = o.bt ?? 0; this.bb = o.bb ?? 0; this.bz = o.bz ?? 0; this.bzB = o.bzBack ?? this.bz;
+    this.pw = o.pw ?? 2; this.wr = o.wrinkle ?? 0; this.wf = o.wrinkleFreq ?? 2.5; this.seed = o.seed ?? 0;
+  }
+  proj(lp) {
+    const { hw, hh, hd, r } = this;
+    const q = V(clamp(lp.x, r - hw, hw - r), clamp(lp.y, r - hh, hh - r), clamp(lp.z, r - hd, hd - r));
+    let dir = lp.clone().sub(q);
+    if (dir.lengthSq() < 1e-12) {
+      const ax = Math.abs(lp.x) / hw, ay = Math.abs(lp.y) / hh, az = Math.abs(lp.z) / hd;
+      dir = ax >= ay && ax >= az ? V(Math.sign(lp.x) || 1, 0, 0) : ay >= az ? V(0, Math.sign(lp.y) || 1, 0) : V(0, 0, Math.sign(lp.z) || 1);
+    }
+    dir.normalize();
+    return { p: q.addScaledVector(dir, r), n: dir };
+  }
+  def(p, n) {
+    const a = clamp(p.x / this.hw, -1, 1), b = clamp(p.y / this.hh, -1, 1), c = clamp(p.z / this.hd, -1, 1);
+    const f = u => 1 - Math.pow(Math.abs(u), this.pw);
+    const o = p.clone();
+    o.x += a * this.bx * f(b) * f(c);
+    o.y += b * (b > 0 ? this.bt : this.bb) * f(a) * f(c);
+    o.z += c * (c > 0 ? this.bz : this.bzB) * f(a) * f(b);
+    if (this.wr) {
+      const s = this.seed, k = this.wf;
+      // wrinkles: low-frequency puckering + finer creases, fading into the seams
+      const edge = Math.min(1, 4 * f(a) * f(b) * f(c) + .25);
+      const wv = (fbm(p.x * k + s, p.y * k, p.z * k) - .5) * 2 + .35 * Math.sin((p.x + p.z * .6) * k * 6 + fbm(p.y * 3, p.x * 3, s) * 6) * (fbm(p.z * 2 + s, p.y * 2, p.x * 2) - .3);
+      o.addScaledVector(n, this.wr * wv * edge);
+    }
+    return o;
+  }
+  local(lp) { const { p, n } = this.proj(lp); return this.def(p, n); }
+  frame(wp) {
+    const lp = wp.clone().sub(this.c);
+    const { p, n } = this.proj(lp);
+    const pos = this.def(p, n);
+    const t1 = new THREE.Vector3().crossVectors(n, Math.abs(n.y) < .9 ? V(0, 1, 0) : V(1, 0, 0)).normalize();
+    const t2 = new THREE.Vector3().crossVectors(n, t1);
+    const e = .01;
+    const p1 = this.local(p.clone().addScaledVector(t1, e)).sub(pos);
+    const p2 = this.local(p.clone().addScaledVector(t2, e)).sub(pos);
+    const nn = new THREE.Vector3().crossVectors(p1, p2).normalize();
+    if (nn.dot(n) < 0) nn.negate();
+    return { pos: pos.add(this.c), normal: nn };
+  }
+  geometry(seg = .04) {
+    const g = new THREE.BoxGeometry(this.w, this.h, this.d,
+      Math.max(2, Math.ceil(this.w / seg)), Math.max(2, Math.ceil(this.h / seg)), Math.max(2, Math.ceil(this.d / seg)));
+    const pos = g.attributes.position, nor = g.attributes.normal, uv = g.attributes.uv, v = V();
+    for (let i = 0; i < pos.count; i++) {
+      v.fromBufferAttribute(pos, i);
+      const nx = Math.abs(nor.getX(i)), ny = Math.abs(nor.getY(i));
+      if (nx > .5) uv.setXY(i, v.z, v.y); else if (ny > .5) uv.setXY(i, v.x, v.z); else uv.setXY(i, v.x, v.y);
+      const o = this.local(v).add(this.c);
+      pos.setXYZ(i, o.x, o.y, o.z);
+    }
+    smoothNormals(g);
+    return g;
+  }
+}
+function smoothNormals(g) {
+  g.computeVertexNormals();
+  const pos = g.attributes.position, nor = g.attributes.normal, map = new Map();
+  const key = i => `${Math.round(pos.getX(i) * 1e4)},${Math.round(pos.getY(i) * 1e4)},${Math.round(pos.getZ(i) * 1e4)}`;
+  const keys = [];
+  for (let i = 0; i < pos.count; i++) {
+    const k = key(i); keys.push(k);
+    let a = map.get(k); if (!a) { a = [0, 0, 0]; map.set(k, a); }
+    a[0] += nor.getX(i); a[1] += nor.getY(i); a[2] += nor.getZ(i);
+  }
+  for (let i = 0; i < pos.count; i++) {
+    const a = map.get(keys[i]), l = Math.hypot(a[0], a[1], a[2]) || 1;
+    nor.setXYZ(i, a[0] / l, a[1] / l, a[2] / l);
+  }
+}
+
+/* ------------------------------------------------------------------ rounded-rect paths */
+function rrPieces(hu, hv, r) {
+  const a = hu - r, b = hv - r, q = Math.PI * r / 2;
+  return [
+    [2 * b, t => [hu, -b + t]],
+    [q, t => { const g = t / r; return [a + r * Math.cos(g), b + r * Math.sin(g)]; }],
+    [2 * a, t => [a - t, hv]],
+    [q, t => { const g = Math.PI / 2 + t / r; return [-a + r * Math.cos(g), b + r * Math.sin(g)]; }],
+    [2 * b, t => [-hu, b - t]],
+    [q, t => { const g = Math.PI + t / r; return [-a + r * Math.cos(g), -b + r * Math.sin(g)]; }],
+    [2 * a, t => [-a + t, -hv]],
+    [q, t => { const g = 1.5 * Math.PI + t / r; return [a + r * Math.cos(g), -b + r * Math.sin(g)]; }],
+  ];
+}
+const rrLen = (hu, hv, r) => rrPieces(hu, hv, r).reduce((s, p) => s + p[0], 0);
+function rrAt(hu, hv, r, s) {
+  const P = rrPieces(hu, hv, r), L = rrLen(hu, hv, r);
+  s = ((s % L) + L) % L;
+  for (const [len, f] of P) { if (s <= len) return f(s); s -= len; }
+  return P[0][1](0);
+}
+function rrSample(hu, hv, r, s0, s1, step = .02, closed = false) {
+  const n = Math.max(2, Math.ceil(Math.abs(s1 - s0) / step)), out = [];
+  for (let i = 0; i < (closed ? n : n + 1); i++) out.push(rrAt(hu, hv, r, s0 + (s1 - s0) * i / n));
+  return out;
+}
+const rrS = {
+  right: (hu, hv, r, y) => y + (hv - r),
+  top: (hu, hv, r, x) => 2 * (hv - r) + Math.PI * r / 2 + ((hu - r) - x),
+  left: (hu, hv, r, y) => 2 * (hv - r) + Math.PI * r + 2 * (hu - r) + ((hv - r) - y),
+};
+
+/* ------------------------------------------------------------------ frames along paths */
+function finishFrames(F, closed) {
+  const n = F.length;
+  for (let i = 0; i < n; i++) {
+    const a = closed ? F[(i - 1 + n) % n] : F[Math.max(0, i - 1)];
+    const b = closed ? F[(i + 1) % n] : F[Math.min(n - 1, i + 1)];
+    const t = b.pos.clone().sub(a.pos).normalize();
+    const nrm = F[i].normal.clone().addScaledVector(t, -F[i].normal.dot(t)).normalize();
+    F[i].normal = nrm; F[i].tangent = t; F[i].binormal = new THREE.Vector3().crossVectors(t, nrm);
+  }
+  let L = 0; F[0].s = 0;
+  for (let i = 1; i < n; i++) { L += F[i].pos.distanceTo(F[i - 1].pos); F[i].s = L; }
+  F.closed = closed;
+  F.len = closed ? L + F[n - 1].pos.distanceTo(F[0].pos) : L;
+  return F;
+}
+function surfFrames(surf, pts, closed = false, lift = 0) {
+  return finishFrames(pts.map(p => { const f = surf.frame(p); f.pos.addScaledVector(f.normal, typeof lift === 'function' ? lift(p) : lift); return f; }), closed);
+}
+function freeFrames(pts, widthHint, upHint, closed = false) {
+  const n = pts.length;
+  const F = pts.map(p => ({ pos: p.clone(), normal: V() }));
+  for (let i = 0; i < n; i++) {
+    const a = closed ? pts[(i - 1 + n) % n] : pts[Math.max(0, i - 1)];
+    const b = closed ? pts[(i + 1) % n] : pts[Math.min(n - 1, i + 1)];
+    const t = b.clone().sub(a).normalize();
+    const w = (typeof widthHint === 'function' ? widthHint(i, pts[i]) : widthHint).clone();
+    w.addScaledVector(t, -w.dot(t)).normalize();
+    const nn = new THREE.Vector3().crossVectors(w, t);
+    const up = typeof upHint === 'function' ? upHint(i, pts[i]) : upHint;
+    if (nn.dot(up) < 0) nn.negate();
+    F[i].normal = nn;
+  }
+  return finishFrames(F, closed);
+}
+function sampleFrames(F, s) {
+  const n = F.length, L = F.len;
+  s = F.closed ? ((s % L) + L) % L : clamp(s, 0, F[n - 1].s);
+  let i = 0; while (i < n - 1 && F[i + 1].s < s) i++;
+  const a = F[i];
+  let b, t;
+  if (i === n - 1) { b = F.closed ? F[0] : a; t = F.closed ? (s - a.s) / ((L - a.s) || 1) : 0; }
+  else { b = F[i + 1]; t = (s - a.s) / ((b.s - a.s) || 1); }
+  const nrm = a.normal.clone().lerp(b.normal, t).normalize(), tan = a.tangent.clone().lerp(b.tangent, t).normalize();
+  return { pos: a.pos.clone().lerp(b.pos, t), normal: nrm, tangent: tan, binormal: new THREE.Vector3().crossVectors(tan, nrm).normalize() };
+}
+const curve = (ctrl, n) => new THREE.CatmullRomCurve3(ctrl, false, 'centripetal').getSpacedPoints(n);
+
+/* --- swept strap / piping / padded strap */
+function profile(P = 20, n = 8) {
+  const out = [];
+  for (let k = 0; k < P; k++) {
+    const a = 2 * Math.PI * k / P, c = Math.cos(a), s = Math.sin(a);
+    out.push([Math.sign(c) * Math.pow(Math.abs(c), 2 / n), Math.sign(s) * Math.pow(Math.abs(s), 2 / n)]);
+  }
+  return out;
+}
+function sweepGeo(F, o) {
+  const prof = profile(o.P ?? 20, o.round ?? 8), P = prof.length, n = F.length, closed = F.closed;
+  const W = o.widthFn || (() => o.width), T = o.thickFn || (() => o.thick);
+  const off = o.offset ?? 0, vs = o.vScale ?? 1 / (o.width || .25), L = F.len || 1;
+  const pos = [], uv = [], idx = [];
+  for (let i = 0; i < n; i++) {
+    const f = F[i], u = f.s / L, w = W(u) / 2, t = T(u) / 2;
+    for (let k = 0; k <= P; k++) {
+      const pr = prof[k % P];
+      const p = f.pos.clone().addScaledVector(f.normal, off + t + pr[1] * t).addScaledVector(f.binormal, pr[0] * w);
+      pos.push(p.x, p.y, p.z); uv.push((pr[0] + 1) / 2, f.s * vs);
+    }
+  }
+  const ring = P + 1, segs = closed ? n : n - 1;
+  for (let i = 0; i < segs; i++) {
+    const a = i * ring, b = ((i + 1) % n) * ring;
+    for (let k = 0; k < P; k++) idx.push(a + k, b + k, a + k + 1, b + k, b + k + 1, a + k + 1);
+  }
+  if (!closed && o.caps !== false) {
+    for (const i of [0, n - 1]) {
+      const f = F[i], t = T(f.s / L) / 2, c = f.pos.clone().addScaledVector(f.normal, off + t), ci = pos.length / 3;
+      pos.push(c.x, c.y, c.z); uv.push(.5, f.s * vs);
+      for (let k = 0; k < P; k++) { const a = i * ring + k, b = a + 1; i === 0 ? idx.push(ci, a, b) : idx.push(ci, b, a); }
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  g.setIndex(idx); g.computeVertexNormals();
+  return g;
+}
+
+/* --- stitching (instanced thread bumps) */
+class Stitches {
+  constructor(mat, size = [.024, .007, .009]) { this.mat = mat; this.size = size; this.m = []; }
+  add(F, o = {}) {
+    const pitch = o.pitch ?? .034, end = o.to ?? F.len;
+    for (let s = (o.from ?? 0) + pitch / 2; s < end; s += pitch) {
+      const f = sampleFrames(F, s), u = s / F.len;
+      const across = typeof o.across === 'function' ? o.across(u) : (o.across ?? 0);
+      const lift = typeof o.lift === 'function' ? o.lift(u) : (o.lift ?? .003);
+      const p = f.pos.clone().addScaledVector(f.normal, lift).addScaledVector(f.binormal, across);
+      this.m.push(basisMatrix(p, f.tangent, f.normal));
+    }
+    return this;
+  }
+  mesh() {
+    const g = new THREE.SphereGeometry(.5, 8, 5); g.scale(...this.size);
+    const im = new THREE.InstancedMesh(g, this.mat, this.m.length);
+    this.m.forEach((m, i) => im.setMatrixAt(i, m));
+    im.receiveShadow = true;
+    return im;
+  }
+}
+function lerpPts(a, b, n = 20) { const p = []; for (let i = 0; i <= n; i++) p.push(a.clone().lerp(b, i / n)); return p; }
+function boxX(surf, st, c, lift) {
+  const loop = [];
+  for (let k = 0; k < 4; k++) loop.push(...lerpPts(c[k], c[(k + 1) % 4]).slice(0, -1));
+  st.add(surfFrames(surf, loop, true, lift), { pitch: .03 });
+  st.add(surfFrames(surf, lerpPts(c[0], c[2]), false, lift), { pitch: .03 });
+  st.add(surfFrames(surf, lerpPts(c[1], c[3]), false, lift), { pitch: .03 });
+}
+
+/* --- conformed decal plane */
+function conformPlane(surf, O, U, Vv, w, h, off, seg = 40) {
+  const g = new THREE.PlaneGeometry(w, h, seg, Math.max(2, Math.round(seg * h / w)));
+  const p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const q = O.clone().addScaledVector(U, p.getX(i)).addScaledVector(Vv, p.getY(i));
+    const f = surf.frame(q); f.pos.addScaledVector(f.normal, off);
+    p.setXYZ(i, f.pos.x, f.pos.y, f.pos.z);
+  }
+  g.computeVertexNormals();
+  return g;
+}
+
+/* ------------------------------------------------------------------ zipper */
+function makePull(metal, cordMat) {
+  const g = new THREE.Group();
+  // slider body
+  const base = mesh(new RoundedBoxGeometry(.25, .03, .15, 3, .012), metal); base.position.y = .026; g.add(base);
+  const top = mesh(new RoundedBoxGeometry(.22, .026, .12, 3, .011), metal); top.position.set(.01, .05, 0); g.add(top);
+  const flare = mesh(new RoundedBoxGeometry(.06, .028, .17, 2, .012), metal); flare.position.set(-.11, .03, 0); g.add(flare);
+  const lug = mesh(new THREE.TorusGeometry(.032, .01, 8, 18, Math.PI), metal); lug.position.set(.02, .062, 0); g.add(lug);
+  // pull tab (hinged; angle set by caller)
+  const pivot = new THREE.Group(); pivot.position.set(.02, .072, 0); g.add(pivot);
+  const tabG = new THREE.Group(); pivot.add(tabG);
+  const s = new THREE.Shape();
+  s.moveTo(0, -.03); s.lineTo(.25, -.042); s.quadraticCurveTo(.33, -.045, .33, 0); s.quadraticCurveTo(.33, .045, .25, .042); s.lineTo(0, .03);
+  s.quadraticCurveTo(-.03, .03, -.03, 0); s.quadraticCurveTo(-.03, -.03, 0, -.03);
+  const slot = new THREE.Path(); slot.moveTo(.255, -.025); slot.lineTo(.29, -.025); slot.lineTo(.29, .025); slot.lineTo(.255, .025); slot.closePath();
+  s.holes.push(slot);
+  const tg = new THREE.ExtrudeGeometry(s, { depth: .012, bevelEnabled: true, bevelThickness: .003, bevelSize: .003, bevelSegments: 2, curveSegments: 10 });
+  tg.rotateX(-Math.PI / 2); tg.translate(0, -.006, 0);
+  tabG.add(mesh(tg, metal));
+  // paracord loop through the slot + barrel knot
+  const pts = [];
+  for (let k = 0; k < 24; k++) {
+    const a = k / 24 * Math.PI * 2, x = .43 - Math.cos(a) * .165, w = Math.sin(a) * (.05 + .02 * (1 - Math.cos(a)) / 2);
+    pts.push(V(x, w * .3, w * .95));
+  }
+  const loopCurve = new THREE.CatmullRomCurve3(pts, true);
+  const cg = new THREE.TubeGeometry(loopCurve, 80, .019, 10, true);
+  const cm = cordMat.clone(); cm.map = cordMat.map.clone(); cm.map.repeat.set(26, 1); cm.map.needsUpdate = true;
+  tabG.add(mesh(cg, cm));
+  const knot = mesh(new THREE.CylinderGeometry(.033, .033, .08, 16), cm); knot.rotation.z = Math.PI / 2; knot.position.set(.39, 0, 0); tabG.add(knot);
+  for (const dx of [-.025, 0, .025]) { const r = mesh(new THREE.TorusGeometry(.033, .008, 6, 16), cm); r.rotation.y = Math.PI / 2; r.position.set(.39 + dx, 0, 0); tabG.add(r); }
+  const tail = mesh(new THREE.CylinderGeometry(.017, .02, .07, 10), cm); tail.rotation.z = Math.PI / 2; tail.position.set(.45, 0, 0); tabG.add(tail);
+  tabG.rotation.z = .1;
+  g.userData.pivot = pivot;
+  return g;
+}
+function makeZipper(F, o) {
+  const G = new THREE.Group();
+  G.add(mesh(sweepGeo(F, { width: o.tapeW ?? .2, thick: .012, offset: -.004, round: 10 }), o.tapeMat));
+  const pitch = .016, count = Math.floor(F.len / pitch) - 2;
+  const tg = new RoundedBoxGeometry(.011, .012, .05, 1, .004);
+  const teeth = new THREE.InstancedMesh(tg, o.teethMat, count);
+  for (let i = 0; i < count; i++) {
+    const f = sampleFrames(F, (i + 1.5) * pitch);
+    const p = f.pos.clone().addScaledVector(f.normal, .014).addScaledVector(f.binormal, (i % 2 ? 1 : -1) * .011);
+    teeth.setMatrixAt(i, basisMatrix(p, f.tangent, f.normal));
+  }
+  teeth.castShadow = true; teeth.receiveShadow = true;
+  G.add(teeth);
+  if (!F.closed) for (const s of [.012, F.len - .012]) {
+    const f = sampleFrames(F, s);
+    const stop = mesh(new RoundedBoxGeometry(.03, .02, .08, 1, .006), o.metal);
+    G.add(place(stop, f.pos.clone().addScaledVector(f.normal, .015), f.tangent, f.normal));
+  }
+  for (const sl of o.sliders || []) {
+    const f = sampleFrames(F, sl.s);
+    const tan = sl.flip ? f.tangent.clone().negate() : f.tangent;
+    const pull = makePull(o.metal, o.cordMat);
+    place(pull, f.pos.clone().addScaledVector(f.normal, .01), tan, f.normal);
+    const bin = new THREE.Vector3().crossVectors(tan, f.normal);
+    const gw = V(0, -1, 0);
+    let gx = gw.dot(tan), gz = gw.dot(bin);
+    let th = Math.hypot(gx, gz) > .35 ? Math.atan2(-gz, gx) : (sl.angle ?? 0);
+    pull.userData.pivot.rotation.y = th;
+    G.add(pull);
+  }
+  return G;
+}
+
+/* --- buckles & hardware */
+function makeBuckle(mat) {
+  const g = new THREE.Group();
+  const fem = mesh(new RoundedBoxGeometry(.2, .055, .3, 3, .02), mat); fem.position.x = -.08; g.add(fem);
+  for (let k = 0; k < 6; k++) { const r = mesh(new RoundedBoxGeometry(.012, .01, .2, 1, .004), mat); r.position.set(-.155 + k * .026, .03, 0); g.add(r); }
+  const win = mesh(new RoundedBoxGeometry(.05, .01, .07, 1, .004), new THREE.MeshStandardMaterial({ color: 0x050505, roughness: .9 }));
+  win.position.set(.0, .024, .08); g.add(win); const win2 = win.clone(); win2.position.z = -.08; g.add(win2);
+  const s = new THREE.Shape();
+  s.moveTo(.02, -.115); s.lineTo(.2, -.13); s.quadraticCurveTo(.24, -.13, .24, -.09); s.lineTo(.24, .09);
+  s.quadraticCurveTo(.24, .13, .2, .13); s.lineTo(.02, .115); s.lineTo(.02, -.115);
+  const h = new THREE.Path(); h.moveTo(.17, -.09); h.lineTo(.205, -.09); h.lineTo(.205, .09); h.lineTo(.17, .09); h.closePath(); s.holes.push(h);
+  const mg = new THREE.ExtrudeGeometry(s, { depth: .034, bevelEnabled: true, bevelThickness: .006, bevelSize: .006, bevelSegments: 2 });
+  mg.rotateX(-Math.PI / 2); mg.translate(0, -.017, 0);
+  g.add(mesh(mg, mat));
+  const bar = mesh(new RoundedBoxGeometry(.04, .04, .3, 2, .015), mat); bar.position.x = -.2; g.add(bar);
+  return g;
+}
+function makeLadder(mat) {
+  const s = new THREE.Shape(); s.moveTo(-.14, -.15); s.lineTo(.14, -.15); s.lineTo(.14, .15); s.lineTo(-.14, .15); s.lineTo(-.14, -.15);
+  for (const x of [-.09, .03]) { const h = new THREE.Path(); h.moveTo(x, -.12); h.lineTo(x + .055, -.12); h.lineTo(x + .055, .12); h.lineTo(x, .12); h.closePath(); s.holes.push(h); }
+  const g = new THREE.ExtrudeGeometry(s, { depth: .025, bevelEnabled: true, bevelThickness: .006, bevelSize: .008, bevelSegments: 2 });
+  g.rotateX(-Math.PI / 2);
+  return mesh(g, mat);
+}
+
+/* ================================================================== WHITE MEDKIT BAG */
+function buildWhiteBag() {
+  const G = new THREE.Group();
+  const hw = 1.3, hh = .55, hd = .85, r = .22, cy = .55;
+  const body = new SoftBox({ w: 2 * hw, h: 2 * hh, d: 2 * hd, r, center: V(0, cy, 0), bx: .045, bt: .085, bb: 0, bz: .06, pw: 2.2, wrinkle: .007, wrinkleFreq: 2.3, seed: 3 });
+  G.add(mesh(body.geometry(.032), M.whiteFab));
+  const stW = new Stitches(M.threadWhite), stR = new Stitches(M.threadRed);
+
+  // bias-bound piping at top and bottom seams
+  const k = r * Math.SQRT1_2;
+  for (const sy of [1, -1]) {
+    const y = cy + sy * (hh - r + k), hu = hw - r + k, hv = hd - r + k;
+    const pts = rrSample(hu, hv, k, 0, rrLen(hu, hv, k), .02, true).map(([u, v]) => V(u, y, v));
+    const F = surfFrames(body, pts, true);
+    G.add(mesh(sweepGeo(F, { width: .055, thick: .055, offset: -.02, round: 2, vScale: 14 }), M.pipingRed));
+    stW.add(F, { lift: .05, pitch: .04, across: 0, ...{} }); // binding stitch on top of piping
+  }
+
+  // two-way zipper around 3 sides of the lid
+  {
+    const y = cy + .19, s0 = rrS.right(hw, hd, r, -.48), s1 = rrS.left(hw, hd, r, -.48);
+    const pts = rrSample(hw, hd, r, s0, s1, .012).map(([u, v]) => V(u, y, v));
+    const F = surfFrames(body, pts, false);
+    const front = (rrS.top(hw, hd, r, 0) - s0) / (s1 - s0) * F.len;
+    G.add(makeZipper(F, { tapeMat: M.tapeRed, teethMat: M.teethRed, metal: M.metalSilver, cordMat: M.cordRed,
+      sliders: [{ s: front - .98 }, { s: front + .98, flip: true }] }));
+    // tape stitching
+    stR.add(F, { across: .088, lift: .004, pitch: .03 });
+    stR.add(F, { across: -.088, lift: .004, pitch: .03 });
+  }
+
+  // top-panel topstitching
+  {
+    const pts = rrSample(1.1, .66, .1, 0, rrLen(1.1, .66, .1), .02, true).map(([u, v]) => V(u, cy + hh, v));
+    stW.add(surfFrames(body, pts, true), { pitch: .036, lift: .003 });
+  }
+
+  // carry handle (webbing loop with box-X stitched tabs)
+  {
+    const hz = -.42, pts = [];
+    for (let i = 0; i <= 120; i++) {
+      const x = -.64 + 1.28 * i / 120, ax = Math.abs(x);
+      const f = body.frame(V(x, cy + hh, hz));
+      const arch = ax < .4 ? .3 * Math.pow(Math.cos(ax / .4 * Math.PI / 2), .6) : 0;
+      pts.push(f.pos.addScaledVector(f.normal, .013 + arch));
+    }
+    const F = freeFrames(pts, V(0, 0, 1), V(0, 1, 0));
+    G.add(mesh(sweepGeo(F, { width: .28, thick: .022, offset: -.011, round: 10 }), M.webRed));
+    stR.add(F, { across: .12, lift: .012, pitch: .03 }); stR.add(F, { across: -.12, lift: .012, pitch: .03 });
+    for (const sx of [1, -1]) {
+      const x0 = sx * .43, x1 = sx * .61;
+      boxX(body, stR, [V(x0, 1, hz - .11), V(x1, 1, hz - .11), V(x1, 1, hz + .11), V(x0, 1, hz + .11)], .027);
+    }
+  }
+
+  // embroidered red cross on the lid
+  {
+    const d = decal(1024, 1024, (g, mode, W) => {
+      crossPath(g, W / 2, W / 2, W * .9, W * .32, 26);
+      g.fillStyle = mode === 'color' ? '#c4161e' : '#9a9a9a'; g.fill();
+      hatch(g, W, W, .7, 7, mode === 'color' ? 'rgba(255,120,120,.28)' : 'rgba(255,255,255,.55)', mode === 'color' ? 'rgba(80,0,0,.25)' : 'rgba(0,0,0,.4)', 3);
+      crossPath(g, W / 2, W / 2, W * .9 - 20, W * .32 - 20, 20);
+      g.lineWidth = 16; g.strokeStyle = mode === 'color' ? '#8d0d13' : '#d8d8d8'; g.stroke();
+    });
+    G.add(mesh(conformPlane(body, V(0, cy + hh, .22), V(1, 0, 0), V(0, 0, -1), .64, .64, .004), decalMat(d)));
+  }
+
+  // "FIRST AID" embroidery on the front
+  {
+    const d = decal(2048, 440, (g, mode, W, H) => {
+      const col = mode === 'color' ? '#c4161e' : '#a0a0a0';
+      crossPath(g, 210, H / 2, 300, 104, 12); g.fillStyle = col; g.fill();
+      g.font = '900 250px "Arial Black", "Helvetica Neue", Arial, sans-serif';
+      g.textBaseline = 'middle'; g.fillText('FIRST AID', 410, H / 2 + 12);
+      hatch(g, W, H, 1.1, 6, mode === 'color' ? 'rgba(255,140,140,.25)' : 'rgba(255,255,255,.5)', mode === 'color' ? 'rgba(60,0,0,.22)' : 'rgba(0,0,0,.4)', 2.5);
+    });
+    G.add(mesh(conformPlane(body, V(0, cy - .12, hd), V(1, 0, 0), V(0, 1, 0), 1.6, .344, .004), decalMat(d)));
+  }
+
+  // D-rings on both ends
+  for (const sx of [1, -1]) {
+    const pts = lerpPts(V(sx * hw, cy + .07, 0), V(sx * hw, cy - .22, 0), 20);
+    const F = surfFrames(body, pts, false, .011);
+    G.add(mesh(sweepGeo(F, { width: .22, thick: .02, offset: -.01, round: 10 }), M.webRed));
+    boxX(body, stR, [V(sx * hw, cy + .04, -.09), V(sx * hw, cy + .04, .09), V(sx * hw, cy - .12, .09), V(sx * hw, cy - .12, -.09)], .023);
+    const f = body.frame(V(sx * hw, cy - .24, 0));
+    const ring = new THREE.Group();
+    const arc = mesh(new THREE.TorusGeometry(.11, .014, 10, 32, Math.PI), M.metalSilver); arc.rotation.z = Math.PI; ring.add(arc);
+    const bar = mesh(new THREE.CylinderGeometry(.014, .014, .22, 10), M.metalSilver); bar.rotation.z = Math.PI / 2; ring.add(bar);
+    const holder = new THREE.Group(); holder.add(ring); ring.rotation.x = -.35;
+    place(holder, f.pos.clone().addScaledVector(f.normal, .03), V(0, 0, -sx), V(0, 1, 0));
+    G.add(holder);
+  }
+
+  // clear ID window with card on the back
+  {
+    const O = V(0, cy - .04, -hd), U = V(-1, 0, 0), Vv = V(0, 1, 0);
+    const card = decal(1024, 560, (g, mode, W, H) => {
+      if (mode === 'bump') { g.fillStyle = '#777'; g.fillRect(0, 0, W, H); return; }
+      g.fillStyle = '#fbfbf7'; g.fillRect(0, 0, W, H);
+      g.fillStyle = '#c4161e'; g.fillRect(0, 0, W, 110);
+      g.fillStyle = '#fff'; g.font = '800 64px Arial, sans-serif'; g.textBaseline = 'middle'; g.fillText('FIRST AID KIT', 40, 58);
+      crossPath(g, W - 90, 55, 70, 24, 4); g.fill();
+      g.fillStyle = '#222'; g.font = '600 38px Arial, sans-serif';
+      ['Location', 'Checked by', 'Next check'].forEach((t, i) => {
+        const y = 200 + i * 110; g.fillText(t + ':', 40, y);
+        g.fillRect(300, y + 26, W - 340, 3);
+      });
+      g.fillStyle = '#1f3a8a'; g.font = 'italic 48px "Segoe Script", "Bradley Hand", "Comic Sans MS", cursive';
+      g.fillText('Vehicle 2 — rear', 320, 196); g.fillText('A. Rahman', 320, 306); g.fillText('03 / 2027', 320, 416);
+    });
+    G.add(mesh(conformPlane(body, O, U, Vv, .92, .5, .004), new THREE.MeshStandardMaterial({ map: card.map, roughness: .6,
+      polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 })));
+    G.add(new THREE.Mesh(conformPlane(body, O, U, Vv, 1.04, .62, .013), M.clearPVC));
+    const pts = rrSample(.52, .31, .03, 0, rrLen(.52, .31, .03), .015, true).map(([u, v]) => O.clone().addScaledVector(U, u).addScaledVector(Vv, v));
+    const F = surfFrames(body, pts, true, .012);
+    G.add(mesh(sweepGeo(F, { width: .07, thick: .014, offset: -.007, round: 6 }), M.webRed));
+    stR.add(F, { lift: .012, pitch: .03 });
+  }
+
+  G.add(stW.mesh(), stR.mesh());
+  return G;
+}
+
+/* ================================================================== BANDAGES */
+function rollMesh({ rIn, rOut, gap, width, tail, mat, capColor, lineColor, seg = 72, wave = .012, alpha = false }) {
+  const G = new THREE.Group(), cy = rOut + .002;
+  const P = [], turns = (rOut - rIn) / gap, tot = turns * 2 * Math.PI, nS = Math.ceil(turns * seg);
+  for (let i = 0; i <= nS; i++) {
+    const th = tot * i / nS, r = rIn + gap * th / (2 * Math.PI), ph = -Math.PI / 2 - tot + th;
+    P.push([r * Math.cos(ph), cy + r * Math.sin(ph), 0]);
+  }
+  const nT = Math.ceil(tail / .01);
+  for (let k = 1; k <= nT; k++) {
+    const z = k * tail / nT;
+    P.push([z, .002 + wave * Math.pow(Math.sin(z * 6.5), 2) * smooth(0, .25, z) + .045 * Math.pow(z / tail, 5), 1]);
+  }
+  const nx = 8, pos = [], uv = [], idx = [];
+  let s = 0;
+  for (let i = 0; i < P.length; i++) {
+    if (i) s += Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]);
+    for (let j = 0; j <= nx; j++) {
+      const x = -width / 2 + width * j / nx, sag = P[i][2] ? .005 * (1 - Math.pow(2 * x / width, 2)) * smooth(0, .3, P[i][0]) : 0;
+      pos.push(x, P[i][1] + sag, P[i][0]); uv.push(x, s);
+    }
+  }
+  for (let i = 0; i < P.length - 1; i++) for (let j = 0; j < nx; j++) {
+    const a = i * (nx + 1) + j, b = a + nx + 1;
+    idx.push(a, b, a + 1, b, b + 1, a + 1);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  g.setIndex(idx); g.computeVertexNormals();
+  G.add(mesh(g, mat));
+  // end faces: the visible spiral of layers
+  const S = 1024, c = mkCanvas(S), cg = c.getContext('2d'), R = S / 2;
+  cg.fillStyle = capColor; cg.beginPath(); cg.arc(R, R, R, 0, Math.PI * 2); cg.arc(R, R, R * rIn / rOut, 0, Math.PI * 2, true); cg.fill();
+  cg.strokeStyle = lineColor; cg.lineWidth = 1.6;
+  cg.beginPath();
+  for (let th = 0; th <= tot; th += .02) {
+    const r = (rIn + gap * th / (2 * Math.PI)) / rOut * R, ph = -th;
+    cg.lineTo(R + r * Math.cos(ph), R + r * Math.sin(ph));
+  }
+  cg.stroke();
+  addNoise(cg, S, S, 18);
+  const capMat = new THREE.MeshStandardMaterial({ map: tex(c, { clampEdge: true }), roughness: .95, alphaTest: .5, side: THREE.DoubleSide });
+  for (const sx of [1, -1]) {
+    const ring = mesh(new THREE.RingGeometry(rIn, rOut, 160, 1), capMat);
+    ring.rotation.y = sx * Math.PI / 2; ring.position.set(sx * width / 2, cy, 0);
+    G.add(ring);
+  }
+  G.userData = { cy, rOut };
+  return G;
+}
+function bendOnRoll(geo, R, cy, th0) {
+  const p = geo.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const s = p.getX(i), t = p.getY(i), h = p.getZ(i), th = th0 + s / R, rr = R + h;
+    p.setXYZ(i, t, cy + rr * Math.cos(th), rr * Math.sin(th));
+  }
+  geo.computeVertexNormals();
+  return geo;
+}
+function plasterGeo(L, W, thick) {
+  const s = new THREE.Shape(), r = W / 2 * .92, x = -L / 2, y = -W / 2;
+  s.moveTo(x + r, y); s.lineTo(x + L - r, y); s.quadraticCurveTo(x + L, y, x + L, y + r); s.lineTo(x + L, y + W - r);
+  s.quadraticCurveTo(x + L, y + W, x + L - r, y + W); s.lineTo(x + r, y + W); s.quadraticCurveTo(x, y + W, x, y + W - r);
+  s.lineTo(x, y + r); s.quadraticCurveTo(x, y, x + r, y);
+  const g = new THREE.ExtrudeGeometry(s, { depth: thick, bevelEnabled: true, bevelThickness: .0015, bevelSize: .002, bevelSegments: 2, curveSegments: 16 });
+  const p = g.attributes.position, uv = g.attributes.uv;
+  for (let i = 0; i < p.count; i++) uv.setXY(i, (p.getX(i) + L / 2) / L, (p.getY(i) + W / 2) / W);
+  g.rotateX(-Math.PI / 2);
+  return g;
+}
+function buildBandages() {
+  const G = new THREE.Group();
+
+  // 1) conforming cotton gauze roll, partly unrolled
+  {
+    const mask = gauzeMaskCanvas();
+    const mat = new THREE.MeshStandardMaterial({ color: 0xf5f3ec, roughness: .96, alphaMap: tex(mask, { repeat: [12.5, 12.5], color: false }),
+      map: tex(lighten(fineWeaveCanvas(), .15), { repeat: [12.5, 12.5] }), alphaTest: .45, side: THREE.DoubleSide });
+    const roll = rollMesh({ rIn: .05, rOut: .42, gap: .0085, width: 1.0, tail: 1.45, mat, capColor: '#efece3', lineColor: 'rgba(150,140,120,.55)' });
+    roll.position.set(-.8, 0, -.75); roll.rotation.y = .28;
+    G.add(roll);
+  }
+
+  // 2) elastic crepe bandage with butterfly clips
+  {
+    const cc = crepeCanvas();
+    const mat = new THREE.MeshPhysicalMaterial({ color: 0xdcb48e, roughness: .92, map: tex(lighten(cc, .35), { repeat: [8, 8] }),
+      bumpMap: tex(cc, { repeat: [8, 8], color: false }), bumpScale: 2.5, sheen: .6, sheenColor: new THREE.Color(0xffe2c4), side: THREE.DoubleSide });
+    const rIn = .06, rOut = .33, gap = .011;
+    const roll = rollMesh({ rIn, rOut, gap, width: .75, tail: .55, mat, capColor: '#d6ae86', lineColor: 'rgba(120,80,40,.55)', wave: .006 });
+    const { cy } = roll.userData, R = rOut + .006;
+    // elastic band
+    const band = new THREE.BoxGeometry(.24, .1, .008, 24, 1, 1);
+    roll.add(mesh(bendOnRoll(band, R, cy, .55), webbing(0xd9c7aa, { sheenColor: 0xffffff })));
+    // toothed metal plates
+    const clipMat = M.metalSilver.clone(); clipMat.side = THREE.DoubleSide;
+    for (const sg of [1, -1]) {
+      const s = new THREE.Shape(), x0 = .1, x1 = .2;
+      s.moveTo(sg * x0, -.07);
+      const teeth = 7;
+      for (let k = 0; k <= teeth; k++) { const t = -.07 + .14 * k / teeth; s.lineTo(sg * x1, t); if (k < teeth) s.lineTo(sg * (x1 + .03), t + .07 / teeth); }
+      s.lineTo(sg * x0, .07); s.lineTo(sg * x0, -.07);
+      const ph = new THREE.Path(); ph.moveTo(sg * .115, -.035); ph.lineTo(sg * .14, -.035); ph.lineTo(sg * .14, .035); ph.lineTo(sg * .115, .035); ph.closePath();
+      s.holes.push(ph);
+      const g = new THREE.ExtrudeGeometry(s, { depth: .006, bevelEnabled: true, bevelThickness: .001, bevelSize: .0015, bevelSegments: 1, steps: 1 });
+      roll.add(mesh(bendOnRoll(g, R + .004, cy, .55), clipMat));
+    }
+    roll.position.set(1.0, 0, -.85); roll.rotation.y = -.42;
+    G.add(roll);
+  }
+
+  // 3) cloth surgical tape on a plastic core
+  {
+    const T = new THREE.Group();
+    const fw = fineWeaveCanvas();
+    const tapeMat = new THREE.MeshStandardMaterial({ color: 0xf6f4ef, roughness: .85, map: tex(lighten(fw, .25), { repeat: [24, 3] }),
+      bumpMap: tex(fw, { repeat: [24, 3], color: false }), bumpScale: 1.5, side: THREE.DoubleSide });
+    const outer = mesh(new THREE.CylinderGeometry(.3, .3, .25, 120, 1, true), tapeMat); outer.position.y = .125; T.add(outer);
+    const sc = mkCanvas(512), sg = sc.getContext('2d');
+    sg.fillStyle = '#f1eee6'; sg.fillRect(0, 0, 512, 512);
+    for (let r = 160; r < 256; r += 2.2) { sg.strokeStyle = `rgba(150,140,120,${.15 + Math.random() * .2})`; sg.lineWidth = 1; sg.beginPath(); sg.arc(256, 256, r, 0, Math.PI * 2); sg.stroke(); }
+    const sideMat = new THREE.MeshStandardMaterial({ map: tex(sc, { clampEdge: true }), roughness: .7, side: THREE.DoubleSide });
+    for (const [y, rx] of [[.25, -Math.PI / 2], [0, Math.PI / 2]]) { const m = mesh(new THREE.RingGeometry(.19, .3, 120), sideMat); m.rotation.x = rx; m.position.y = y; T.add(m); }
+    const core = new THREE.MeshPhysicalMaterial({ color: 0xeef1f4, roughness: .25, clearcoat: .6, side: THREE.DoubleSide });
+    const c1 = mesh(new THREE.CylinderGeometry(.19, .19, .26, 96, 1, true), core); c1.position.y = .125; T.add(c1);
+    const c2 = mesh(new THREE.CylinderGeometry(.168, .168, .26, 96, 1, true), core); c2.position.y = .125; T.add(c2);
+    for (const y of [.255, -.005]) { const m = mesh(new THREE.RingGeometry(.168, .19, 96), core); m.rotation.x = -Math.PI / 2; m.position.y = y; T.add(m); }
+    for (let k = 0; k < 12; k++) { const a = k / 12 * Math.PI * 2, rib = mesh(new THREE.BoxGeometry(.012, .26, .02), core); rib.position.set(Math.cos(a) * .162, .125, Math.sin(a) * .162); rib.rotation.y = -a; T.add(rib); }
+    // peeled tail
+    const tp = [];
+    for (let i = 0; i <= 30; i++) { const a = -.2 + i / 30 * .9; tp.push(V(Math.cos(a) * .303, .125, Math.sin(a) * .303)); }
+    const end = tp[tp.length - 1], dir = V(-Math.sin(.7), 0, Math.cos(.7));
+    for (let i = 1; i <= 12; i++) tp.push(end.clone().addScaledVector(dir, i * .012).add(V(Math.cos(.7) * .0015 * i * i * .1, 0, Math.sin(.7) * .0015 * i * i * .1)));
+    const F = freeFrames(tp, V(0, 1, 0), (i, p) => V(p.x, 0, p.z));
+    T.add(mesh(sweepGeo(F, { width: .25, thick: .004, round: 12 }), tapeMat));
+    T.position.set(1.35, 0, .45);
+    G.add(T);
+  }
+
+  // 4) sterile gauze pad pouch
+  {
+    const surf = new SoftBox({ w: 1.1, h: .05, d: 1.1, r: .024, center: V(0, .025, 0), bt: .035, pw: 2, wrinkle: .002, wrinkleFreq: 6 });
+    const P = new THREE.Group();
+    P.add(mesh(surf.geometry(.02), M.paper));
+    const d = decal(1024, 1024, (g, mode, W, H) => {
+      if (mode === 'bump') { g.fillStyle = '#808080'; g.fillRect(0, 0, W, H); g.strokeStyle = '#d0d0d0'; g.lineWidth = 3;
+        for (let k = -H; k < W; k += 12) { for (const [a, b] of [[0, 60], [W - 60, W]]) { g.beginPath(); g.moveTo(a, k + a); g.lineTo(b, k + b); g.stroke(); } g.beginPath(); g.moveTo(k, 0); g.lineTo(k + 60, 60); g.stroke(); g.beginPath(); g.moveTo(k, H - 60); g.lineTo(k + 60, H); g.stroke(); }
+        return; }
+      g.fillStyle = '#fbfbf8'; g.fillRect(0, 0, W, H);
+      g.strokeStyle = 'rgba(160,170,180,.5)'; g.lineWidth = 2;
+      for (let k = -H; k < W + H; k += 12) { g.beginPath(); g.moveTo(k, 0); g.lineTo(k - H, H); g.stroke(); }
+      g.fillStyle = '#fbfbf8'; g.fillRect(70, 70, W - 140, H - 140);
+      g.fillStyle = '#1b4f9c'; g.fillRect(70, 70, W - 140, 170);
+      g.fillStyle = '#fff'; g.font = '800 92px Arial, sans-serif'; g.textBaseline = 'middle'; g.fillText('STERILE', 110, 158);
+      g.strokeStyle = '#fff'; g.lineWidth = 6; g.strokeRect(W - 330, 108, 220, 96); g.font = '700 54px Arial'; g.fillText('R', W - 160, 158);
+      g.font = '600 40px Arial'; g.fillText('STERILE', W - 318, 158);
+      g.fillStyle = '#132b55'; g.font = '800 104px Arial, sans-serif'; g.fillText('GAUZE PAD', 110, 330);
+      g.fillStyle = '#333'; g.font = '500 48px Arial, sans-serif';
+      g.fillText('10 cm × 10 cm  ·  12-ply', 110, 420);
+      g.fillText('100% cotton  ·  non-adherent', 110, 485);
+      g.fillStyle = '#c4161e'; g.fillRect(110, 545, W - 220, 6);
+      g.fillStyle = '#555'; g.font = '500 36px Arial';
+      g.fillText('Do not use if package is damaged.', 110, 610); g.fillText('Single use only.  Store dry.', 110, 660);
+      g.font = '700 38px "Courier New", monospace'; g.fillStyle = '#222';
+      g.fillText('LOT  2610-04B', 110, 760); g.fillText('EXP  2029-09', 110, 815);
+      g.strokeStyle = '#222'; g.lineWidth = 5; g.beginPath(); g.arc(W - 200, 790, 60, 0, Math.PI * 2); g.stroke();
+      g.font = '800 70px Arial'; g.fillText('2', W - 221, 792); g.beginPath(); g.moveTo(W - 243, 833); g.lineTo(W - 157, 747); g.stroke();
+      g.fillStyle = '#c4161e'; g.font = '800 40px Arial'; g.fillText('▲ PEEL HERE', W / 2 - 130, 900);
+      addNoise(g, W, H, 8);
+    });
+    P.add(mesh(conformPlane(surf, V(0, .05, 0), V(1, 0, 0), V(0, 0, -1), 1.098, 1.098, .0015, 50), decalMat(d, { bumpScale: 1.2, roughness: .55 })));
+    P.position.set(.3, 0, 1.25); P.rotation.y = .18;
+    G.add(P);
+  }
+
+  // 5) adhesive plasters (two open, one wrapped)
+  {
+    const L = .72, W = .19;
+    const pc = mkCanvas(1024, 272), pg = pc.getContext('2d');
+    pg.fillStyle = '#d7a37b'; pg.fillRect(0, 0, 1024, 272);
+    pg.fillStyle = 'rgba(120,70,40,.45)';
+    for (let y = 18; y < 272; y += 22) for (let x = 14 + (y % 44 ? 11 : 0); x < 1024; x += 22) { pg.beginPath(); pg.arc(x, y, 3.2, 0, Math.PI * 2); pg.fill(); }
+    addNoise(pg, 1024, 272, 14);
+    const pm = new THREE.MeshStandardMaterial({ map: tex(pc, { clampEdge: true }), roughness: .55 });
+    const qc = mkCanvas(256), qg = qc.getContext('2d');
+    qg.fillStyle = '#f6f3ee'; qg.fillRect(0, 0, 256, 256);
+    qg.fillStyle = 'rgba(0,0,0,.14)'; for (let y = 4; y < 256; y += 16) for (let x = 4 + (y % 32 ? 8 : 0); x < 256; x += 16) { qg.beginPath(); qg.arc(x, y, 3, 0, Math.PI * 2); qg.fill(); }
+    const padMat = new THREE.MeshPhysicalMaterial({ map: tex(qc), bumpMap: tex(qc, { color: false }), bumpScale: 2, roughness: .4, clearcoat: .3 });
+    for (const [x, z, a] of [[-1.15, 1.75, .35], [-.5, 2.25, -.25]]) {
+      const pl = new THREE.Group();
+      pl.add(mesh(plasterGeo(L, W, .006), pm));
+      const pad = mesh(plasterGeo(.25, .13, .012), padMat); pad.position.y = .006; pl.add(pad);
+      pl.position.set(x, .002, z); pl.rotation.y = a;
+      G.add(pl);
+    }
+    const surf = new SoftBox({ w: .86, h: .024, d: .3, r: .011, center: V(0, .012, 0), bt: .014, pw: 2, wrinkle: .0015, wrinkleFreq: 9 });
+    const wr = new THREE.Group();
+    wr.add(mesh(surf.geometry(.012), M.paper));
+    const d = decal(1024, 358, (g, mode, W, H) => {
+      if (mode === 'bump') { g.fillStyle = '#808080'; g.fillRect(0, 0, W, H); g.fillStyle = '#d0d0d0'; for (const x0 of [0, W - 90]) for (let x = x0; x < x0 + 90; x += 12) g.fillRect(x, 0, 5, H); return; }
+      g.fillStyle = '#fbfbf9'; g.fillRect(0, 0, W, H);
+      g.fillStyle = 'rgba(160,165,175,.6)'; for (const x0 of [0, W - 90]) for (let x = x0; x < x0 + 90; x += 12) g.fillRect(x, 0, 5, H);
+      g.fillStyle = '#c4161e'; g.fillRect(90, 24, W - 180, 14); g.fillRect(90, H - 38, W - 180, 14);
+      g.fillStyle = '#132b55'; g.font = '800 62px Arial'; g.textBaseline = 'middle'; g.fillText('ADHESIVE BANDAGE', 130, 130);
+      g.fillStyle = '#444'; g.font = '500 36px Arial'; g.fillText('STERILE  ·  72 × 19 mm  ·  latex free', 130, 205);
+      g.fillStyle = '#c4161e'; g.font = '800 34px Arial'; g.fillText('◀ PULL', 130, 270); g.fillText('PULL ▶', W - 260, 270);
+    });
+    wr.add(mesh(conformPlane(surf, V(0, .024, 0), V(1, 0, 0), V(0, 0, -1), .858, .298, .001, 40), decalMat(d, { bumpScale: 1, roughness: .5 })));
+    wr.position.set(1.25, 0, 1.55); wr.rotation.y = -.5;
+    G.add(wr);
+  }
+  return G;
+}
+
+/* ================================================================== LARGE MEDKIT BACKPACK */
+function buildBackpack() {
+  const G = new THREE.Group();
+  const hw = 1.5, hh = 2.2, hd = .95, r = .35, cy = 2.2;
+  const body = new SoftBox({ w: 2 * hw, h: 2 * hh, d: 2 * hd, r, center: V(0, cy, 0), bx: .11, bt: .1, bb: 0, bz: .15, bzBack: .12, pw: 2, wrinkle: .013, wrinkleFreq: 1.5, seed: 11 });
+  G.add(mesh(body.geometry(.042), M.redFab));
+  const base = new SoftBox({ w: 3.07, h: .72, d: 1.97, r: .24, center: V(0, .36, 0), bx: .012, bz: .012, pw: 2, wrinkle: .004, seed: 5 });
+  G.add(mesh(base.geometry(.04), M.baseFab));
+  const stB = new Stitches(M.threadBlack), stW = new Stitches(M.threadWhite, [.022, .006, .008]);
+  // base top stitching
+  {
+    const pts = rrSample(1.535, .985, .24, 0, rrLen(1.535, .985, .24), .02, true).map(([u, v]) => V(u, .64, v));
+    stB.add(surfFrames(base, pts, true), { lift: .003, pitch: .036 });
+  }
+  // piping on front/back body seams
+  const k = r * Math.SQRT1_2;
+  for (const sz of [1, -1]) {
+    const hu = hw - r + k, hv = hh - r + k, z = sz * (hd - r + k);
+    const pts = rrSample(hu, hv, k, 0, rrLen(hu, hv, k), .025, true).map(([u, v]) => V(u, cy + v, z)).filter(p => p.y > .55);
+    const F = surfFrames(body, pts, false);
+    G.add(mesh(sweepGeo(F, { width: .06, thick: .06, offset: -.022, round: 2, vScale: 12 }), M.webBlack));
+  }
+
+  // main compartment zipper (sides + top, two sliders meeting on top)
+  {
+    const z = .4, s0 = rrS.right(hw, hh, r, -1.25), s1 = rrS.left(hw, hh, r, -1.25);
+    const pts = rrSample(hw, hh, r, s0, s1, .012).map(([u, v]) => V(u, cy + v, z));
+    const F = surfFrames(body, pts, false);
+    const top = (rrS.top(hw, hh, r, 0) - s0) / (s1 - s0) * F.len;
+    G.add(makeZipper(F, { tapeMat: M.tapeBlack, teethMat: M.teethBlack, metal: M.metalDark, cordMat: M.cordBlack,
+      sliders: [{ s: top - .22, angle: Math.PI }, { s: top + .22, flip: true, angle: Math.PI }] }));
+    stB.add(F, { across: .088, pitch: .03 }); stB.add(F, { across: -.088, pitch: .03 });
+  }
+
+  // front pocket
+  const pc = V(0, 1.68, hd + .16);
+  const pocket = new SoftBox({ w: 2.4, h: 2.5, d: .62, r: .24, center: pc, bx: .03, bt: .04, bz: .14, bzBack: 0, pw: 2, wrinkle: .009, wrinkleFreq: 1.9, seed: 21 });
+  G.add(mesh(pocket.geometry(.035), M.redFab));
+  {
+    const pk = .24 * Math.SQRT1_2, hu = 1.2 - .24 + pk, hv = 1.25 - .24 + pk;
+    const pts = rrSample(hu, hv, pk, 0, rrLen(hu, hv, pk), .02, true).map(([u, v]) => V(u, pc.y + v, pc.z + (.31 - .24 + pk)));
+    G.add(mesh(sweepGeo(surfFrames(pocket, pts, true), { width: .055, thick: .055, offset: -.02, round: 2, vScale: 12 }), M.webBlack));
+    const z = pc.z + .03, s0 = rrS.right(1.2, 1.25, .24, -.85), s1 = rrS.left(1.2, 1.25, .24, -.85);
+    const zp = rrSample(1.2, 1.25, .24, s0, s1, .012).map(([u, v]) => V(u, pc.y + v, z));
+    const F = surfFrames(pocket, zp, false);
+    const at = (rrS.top(1.2, 1.25, .24, .55) - s0) / (s1 - s0) * F.len;
+    G.add(makeZipper(F, { tapeMat: M.tapeBlack, teethMat: M.teethBlack, metal: M.metalDark, cordMat: M.cordBlack, sliders: [{ s: at, angle: 0 }] }));
+    stB.add(F, { across: .088, pitch: .03 }); stB.add(F, { across: -.088, pitch: .03 });
+  }
+  // patch: white square, red cross, merrowed border
+  {
+    const d = decal(1024, 1024, (g, mode, W) => {
+      rrPath(g, 8, 8, W - 16, W - 16, 110);
+      g.fillStyle = mode === 'color' ? '#2b2b2e' : '#cfcfcf'; g.fill();
+      hatch(g, W, W, 0, 6, mode === 'color' ? 'rgba(255,255,255,.12)' : 'rgba(255,255,255,.5)', 'rgba(0,0,0,.35)', 2.5);
+      rrPath(g, 52, 52, W - 104, W - 104, 76);
+      g.fillStyle = mode === 'color' ? '#f3f2ee' : '#7a7a7a'; g.fill();
+      if (mode === 'color') { g.save(); g.clip(); g.strokeStyle = 'rgba(0,0,0,.05)'; for (let x = 0; x < W; x += 5) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, W); g.stroke(); } g.restore(); }
+      crossPath(g, W / 2, W / 2, W * .66, W * .23, 16);
+      g.fillStyle = mode === 'color' ? '#c4161e' : '#b4b4b4'; g.fill();
+      g.save(); crossPath(g, W / 2, W / 2, W * .66, W * .23, 16); g.clip();
+      hatch(g, W, W, .7, 7, mode === 'color' ? 'rgba(255,120,120,.25)' : 'rgba(255,255,255,.6)', mode === 'color' ? 'rgba(60,0,0,.25)' : 'rgba(0,0,0,.35)', 3);
+      g.restore();
+    });
+    G.add(mesh(conformPlane(pocket, V(0, pc.y + .12, pc.z + .31), V(1, 0, 0), V(0, 1, 0), 1.0, 1.0, .007), decalMat(d)));
+    // velcro field outline stitching around patch
+    const pts = rrSample(.56, .56, .08, 0, rrLen(.56, .56, .08), .02, true).map(([u, v]) => V(u, pc.y + .12 + v, pc.z + .31));
+    stB.add(surfFrames(pocket, pts, true), { lift: .004, pitch: .034 });
+  }
+  // reflective band across the upper front
+  {
+    G.add(new THREE.Mesh(conformPlane(body, V(0, 3.4, hd), V(1, 0, 0), V(0, 1, 0), 2.62, .24, .006, 60), M.reflective));
+    for (const dy of [.105, -.105]) stB.add(surfFrames(body, lerpPts(V(-1.3, 3.4 + dy, hd), V(1.3, 3.4 + dy, hd), 60), false, .008), { pitch: .032 });
+  }
+
+  // top grab handle with padded grip
+  {
+    const hz = -.25, pts = [];
+    for (let i = 0; i <= 140; i++) {
+      const x = -.66 + 1.32 * i / 140, ax = Math.abs(x);
+      const f = body.frame(V(x, cy + hh, hz));
+      const arch = ax < .44 ? .26 * Math.pow(Math.cos(ax / .44 * Math.PI / 2), .55) : 0;
+      pts.push(f.pos.addScaledVector(f.normal, .013 + arch));
+    }
+    const F = freeFrames(pts, V(0, 0, 1), V(0, 1, 0));
+    const bump = u => smooth(.27, .36, u) * (1 - smooth(.64, .73, u));
+    G.add(mesh(sweepGeo(F, { width: .27, thick: .024, offset: -.012, round: 10 }), M.webBlack));
+    G.add(mesh(sweepGeo(F, { widthFn: u => .2 + .14 * bump(u), thickFn: u => .02 + .07 * bump(u), offset: -.01, round: 3, width: .3 }), M.blackFab));
+    for (const sx of [1, -1]) {
+      const x0 = sx * .47, x1 = sx * .65;
+      boxX(body, stW, [V(x0, 5, hz - .11), V(x1, 5, hz - .11), V(x1, 5, hz + .11), V(x0, 5, hz + .11)], .028);
+    }
+  }
+
+  // sides: MOLLE rows + compression straps with side-release buckles
+  for (const sx of [1, -1]) {
+    for (const y of [1.78, 2.2, 2.62]) {
+      const F = surfFrames(body, lerpPts(V(sx * hw, y, -.72), V(sx * hw, y, .24), 60), false, .01);
+      G.add(mesh(sweepGeo(F, { width: .23, thick: .018, offset: -.009, round: 10 }), M.webBlack));
+      for (const z of [-.69, -.37, -.05, .21]) {
+        const col = surfFrames(body, lerpPts(V(sx * hw, y - .1, z), V(sx * hw, y + .1, z), 10), false, .02);
+        stB.add(col, { pitch: .018, across: -.012 }); stB.add(col, { pitch: .018, across: .012 });
+      }
+    }
+    for (const y of [3.15, 1.25]) {
+      const lift = p => .012 + .03 * smooth(-.7, -.2, p.z) * (1 - smooth(.55, .8, p.z));
+      const F = surfFrames(body, lerpPts(V(sx * hw, y, -.82), V(sx * hw, y, .82), 80), false, lift);
+      G.add(mesh(sweepGeo(F, { width: .25, thick: .02, offset: -.01, round: 10 }), M.webBlack));
+      const f = sampleFrames(F, F.len * .45);
+      const b = makeBuckle(M.plastic);
+      G.add(place(b, f.pos.clone().addScaledVector(f.normal, .03), f.tangent, f.normal));
+      for (const s of [.04, F.len - .1]) { const a = sampleFrames(F, s); stB.add(surfFrames(body, lerpPts(a.pos.clone().addScaledVector(a.binormal, -.1), a.pos.clone().addScaledVector(a.binormal, .1), 10), false, .022), { pitch: .016 }); }
+    }
+  }
+
+  // back: airmesh pads
+  for (const sx of [1, -1]) for (const y of [3.22, 1.78]) {
+    const pad = new SoftBox({ w: 1.05, h: 1.28, d: .22, r: .1, center: V(sx * .6, y, -1.07), bzBack: .07, bz: 0, bx: .01, bt: .01, pw: 2, wrinkle: .006, seed: sx * 7 + y });
+    G.add(mesh(pad.geometry(.03), M.airmesh));
+    const pts = rrSample(.47, .58, .07, 0, rrLen(.47, .58, .07), .02, true).map(([u, v]) => V(sx * .6 - u, y + v, -1.4));
+    stB.add(surfFrames(pad, pts, true), { lift: .003, pitch: .034 });
+  }
+
+  // padded shoulder straps + adjustment webbing + ladder locks
+  const strapAt = [];
+  for (const sx of [1, -1]) {
+    const ctrl = [V(.42, 4.3, -.68), V(.45, 4.06, -1.12), V(.5, 3.62, -1.47), V(.58, 2.95, -1.55), V(.68, 2.15, -1.53), V(.78, 1.5, -1.45), V(.86, 1.12, -1.38)]
+      .map(p => V(p.x * sx, p.y, p.z));
+    const pts = curve(ctrl, 160);
+    const F = freeFrames(pts, V(1, 0, 0), V(0, 0, -1));
+    const Wf = u => .44 + .2 * Math.sin(Math.PI * Math.min(1, u * 1.15)), Tf = u => .05 + .08 * smooth(0, .18, u) * (1 - .4 * smooth(.85, 1, u));
+    G.add(mesh(sweepGeo(F, { widthFn: Wf, thickFn: Tf, width: .5, round: 4, P: 28, vScale: 2.5 }), M.airmesh));
+    // outer nylon shell
+    G.add(mesh(sweepGeo(F, { widthFn: u => Wf(u) * .9, thickFn: u => Tf(u) + .012, width: .5, round: 4, P: 28, offset: .003, vScale: 4 }), M.blackFab));
+    stB.add(F, { across: u => Wf(u) * .42, lift: u => Tf(u) * 1.0 + .01, pitch: .034 });
+    stB.add(F, { across: u => -Wf(u) * .42, lift: u => Tf(u) * 1.0 + .01, pitch: .034 });
+    strapAt.push(F);
+    // webbing down to the base, through a ladder lock, with a hanging tail
+    const wctrl = [V(.8, 1.3, -1.43), V(.95, .86, -1.33), V(1.1, .56, -1.2), V(1.2, .38, -1.06), V(1.26, .3, -.96)].map(p => V(p.x * sx, p.y, p.z));
+    const WF = freeFrames(curve(wctrl, 60), V(1, -.3, 0).multiply(V(sx, 1, 1)), V(0, 0, -1));
+    G.add(mesh(sweepGeo(WF, { width: .25, thick: .02, round: 10 }), M.webBlack));
+    const lf = sampleFrames(WF, WF.len * .55);
+    G.add(place(makeLadder(M.plastic), lf.pos.clone().addScaledVector(lf.normal, .02), lf.binormal, lf.normal));
+    const tctrl = [lf.pos.clone().addScaledVector(lf.normal, .05), V(1.06 * sx, .34, -1.3), V(1.03 * sx, .12, -1.33), V(1.02 * sx, .04, -1.3)];
+    const TF = freeFrames(curve(tctrl, 30), V(1, 0, 0), V(0, 0, -1));
+    G.add(mesh(sweepGeo(TF, { width: .25, thick: .018, round: 10 }), M.webBlack));
+  }
+  // sternum strap
+  {
+    const y = 2.95, pts = [];
+    for (let i = 0; i <= 60; i++) { const x = -.72 + 1.44 * i / 60; pts.push(V(x, y - .02 * (1 - Math.pow(x / .72, 2)), -1.69 - .015 * (1 - Math.pow(x / .72, 2)))); }
+    const F = freeFrames(pts, V(0, 1, 0), V(0, 0, -1));
+    G.add(mesh(sweepGeo(F, { width: .2, thick: .018, round: 10 }), M.webBlack));
+    const f = sampleFrames(F, F.len / 2);
+    const b = makeBuckle(M.plastic); b.scale.setScalar(.8);
+    G.add(place(b, f.pos.clone().addScaledVector(f.normal, .03), f.tangent, f.normal));
+  }
+  // hang loop
+  {
+    const pts = [];
+    for (let i = 0; i <= 40; i++) { const t = i / 40, x = -.16 + .32 * t; const f = body.frame(V(x, 4.4, -.78)); pts.push(f.pos.addScaledVector(f.normal, .012 + .14 * Math.pow(Math.sin(Math.PI * t), .7))); }
+    G.add(mesh(sweepGeo(freeFrames(pts, V(0, 0, 1), V(0, 1, -.4)), { width: .2, thick: .02, round: 10 }), M.webBlack));
+  }
+
+  G.add(stB.mesh(), stW.mesh());
+  return G;
+}
+
+/* ------------------------------------------------------------------ assemble */
+const groups = {};
+const views = {
+  all: { target: V(0, 1.3, 0), cam: V(0, 7.5, 15),
+    info: 'Three fully procedural models. Every zipper tooth, stitch, buckle and fibre texture is generated in the browser — no image files.' },
+  bag: { target: V(-4.5, .6, .2), cam: V(-2.2, 2.6, 4.1),
+    info: 'White first-aid pouch (~26 × 11 × 17 cm): embroidered red cross and “FIRST AID”, two-way red zipper with paracord pulls, red bias-bound piping, webbing handle with box-X stitching, steel D-rings, clear ID window with card on the back.' },
+  band: { target: V(.2, .15, .55), cam: V(1.9, 2.7, 4.3),
+    info: 'Bandages: open-weave cotton gauze roll (partly unrolled), elastic crepe bandage with toothed butterfly clips, cloth surgical tape on a ribbed plastic core, sterile 10×10 cm gauze pad pouch, and adhesive plasters (two open, one wrapped).' },
+  pack: { target: V(5, 2.2, -.2), cam: V(10.6, 5.4, 8.8),
+    info: 'Large trauma backpack (~30 × 44 × 19 cm): ripstop shell, ballistic-nylon base, two-way main zipper, front pocket with merrowed cross patch, reflective band, MOLLE rows, compression straps with side-release buckles, airmesh back pads, padded harness with sternum strap and ladder-lock adjusters.' },
+};
+
+function build() {
+  groups.bag = buildWhiteBag(); groups.bag.position.set(-4.5, 0, .2); groups.bag.rotation.y = .38;
+  groups.band = buildBandages(); groups.band.position.set(0, 0, .2);
+  groups.pack = buildBackpack(); groups.pack.position.set(5, 0, -.2); groups.pack.rotation.y = -.32;
+  for (const g of Object.values(groups)) { scene.add(g); g.traverse(o => { if (o.material && o.material.envMapIntensity !== undefined) o.material.envMapIntensity = .55; }); }
+  document.getElementById('load').remove();
+}
+
+let fly = null;
+function go(v) {
+  document.querySelectorAll('#btns button[data-v]').forEach(b => b.classList.toggle('on', b.dataset.v === v));
+  document.getElementById('info').textContent = views[v].info;
+  fly = { t: 0, fromC: camera.position.clone(), fromT: controls.target.clone(), toC: views[v].cam.clone(), toT: views[v].target.clone() };
+}
+document.querySelectorAll('#btns button[data-v]').forEach(b => b.addEventListener('click', () => go(b.dataset.v)));
+const spin = document.getElementById('spin');
+spin.addEventListener('click', () => { controls.autoRotate = !controls.autoRotate; spin.classList.toggle('on', controls.autoRotate); });
+controls.addEventListener('start', () => { fly = null; });
+document.getElementById('info').textContent = views.all.info;
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+let last = performance.now();
+function tick(now) {
+  const dt = Math.min(.05, (now - last) / 1000); last = now;
+  if (fly) {
+    fly.t = Math.min(1, fly.t + dt / 1.3);
+    const e = fly.t < .5 ? 4 * fly.t ** 3 : 1 - Math.pow(-2 * fly.t + 2, 3) / 2;
+    camera.position.lerpVectors(fly.fromC, fly.toC, e);
+    controls.target.lerpVectors(fly.fromT, fly.toT, e);
+    if (fly.t >= 1) fly = null;
+  }
+  controls.update();
+  renderer.render(scene, camera);
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(t => { renderer.render(scene, camera); setTimeout(() => { build(); const v = new URLSearchParams(location.search).get('view'); if (v && views[v]) { go(v); fly.t = .999; } window.__ready = true; requestAnimationFrame(tick); }, 30); });
+</script>
+</body>
+</html>
