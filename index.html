@@ -1,0 +1,179 @@
+<title>Lordville Asset Library</title>
+<meta name="description" content="Procedural 3D props: medical kit, weapons and more.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  /* Layout: a specimen catalogue — index grid of tagged cards that opens onto a lit inspection bench with a spec sheet. */
+  :root {
+    --paper: #eceef0;
+    --surface: #f8f9fa;
+    --ink: #15181c;
+    --muted: #59616b;
+    --line: #d2d7dc;
+    --accent: #8d6410;
+    --accent-ink: #ffffff;
+    --stage: #dcdad6;
+    --stage-floor: #c6c1b9;
+    --f-display: "Chakra Petch", "Bahnschrift", "Arial Narrow", sans-serif;
+    --f-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+    --f-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+    --r: 6px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #111316; --surface: #181b1f; --ink: #e8eaed; --muted: #9ba3ad; --line: #2a2f36;
+      --accent: #d9a94b; --accent-ink: #17130a; --stage: #24272b; --stage-floor: #1b1e21; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #111316; --surface: #181b1f; --ink: #e8eaed; --muted: #9ba3ad; --line: #2a2f36;
+    --accent: #d9a94b; --accent-ink: #17130a; --stage: #24272b; --stage-floor: #1b1e21; color-scheme: dark;
+  }
+  [hidden] { display: none !important; }
+  html, body { height: 100%; }
+  body { background: var(--paper); color: var(--ink); font: 15px/1.5 var(--f-body); }
+  .wrap { max-width: 1240px; margin: 0 auto; padding-inline: 16px; padding-block: 20px 40px; }
+  a { color: inherit; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* masthead */
+  .mast { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px 24px; padding-block: 8px 20px; border-bottom: 1px solid var(--line); }
+  .brand { display: grid; gap: 2px; min-width: 0; }
+  .brand small { font: 500 12px/1 var(--f-mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+  h1 { margin: 0; font: 600 clamp(28px, 5vw, 44px)/1.05 var(--f-display); letter-spacing: -.01em; text-wrap: balance; }
+  .search { display: grid; gap: 4px; width: min(100%, 340px); }
+  .search label { font: 500 11px/1 var(--f-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+  .search input { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 9px 12px; width: 100%; box-sizing: border-box; }
+  .bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; padding-block: 16px; }
+  #filters { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { font: 500 13px/1 var(--f-body); color: var(--ink); background: transparent; border: 1px solid var(--line); border-radius: 999px; padding: 8px 12px; cursor: pointer; display: inline-flex; gap: 8px; align-items: center; }
+  .chip span { font: 500 11px/1 var(--f-mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+  .chip[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .chip[aria-pressed="true"] span { color: inherit; opacity: .7; }
+  #count { font: 400 12px/1 var(--f-mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  /* catalogue grid */
+  #grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 20px; }
+  .card { display: grid; gap: 6px; text-decoration: none; min-width: 0; }
+  .thumb { aspect-ratio: 4 / 3; max-width: 100%; background: var(--stage); border-radius: var(--r); overflow: hidden; display: grid; place-items: center; transition: transform .25s ease; }
+  .thumb img { width: 100%; height: 100%; object-fit: contain; display: block; transition: transform .35s ease; }
+  .card:hover .thumb img { transform: scale(1.04); }
+  .nothumb { font: 500 12px var(--f-mono); color: var(--muted); }
+  .card-meta { display: flex; justify-content: space-between; gap: 8px; padding-top: 6px; border-top: 1px solid var(--line); margin-top: 4px; }
+  .code { font: 500 12px/1.2 var(--f-mono); letter-spacing: .06em; color: var(--accent); }
+  .cat { font: 500 11px/1.2 var(--f-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+  .card h3 { margin: 0; font: 600 20px/1.15 var(--f-display); }
+  .card p { margin: 0; color: var(--muted); font-size: 14px; }
+  .empty { color: var(--muted); grid-column: 1 / -1; }
+
+  /* inspection bench */
+  .dbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding-block: 4px 14px; }
+  .back { font: 500 14px var(--f-body); text-decoration: none; display: inline-flex; gap: 6px; align-items: center; }
+  .back:hover { color: var(--accent); }
+  .stepper { display: flex; align-items: center; gap: 6px; }
+  .stepper a { text-decoration: none; border: 1px solid var(--line); border-radius: var(--r); padding: 6px 11px; font: 500 14px var(--f-mono); }
+  .stepper a:hover { border-color: var(--ink); }
+  #d-pos { font: 400 12px var(--f-mono); color: var(--muted); font-variant-numeric: tabular-nums; min-width: 4ch; text-align: center; }
+  .bench { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 24px; align-items: start; }
+  .stage { position: relative; background: var(--stage); border-radius: var(--r); overflow: hidden; height: min(74vh, 760px); min-height: 380px; }
+  #view { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+  #view:active { cursor: grabbing; }
+  .tools { position: absolute; left: 12px; bottom: 12px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .tools button { font: 500 12px/1 var(--f-body); color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 8px 12px; cursor: pointer; }
+  .tools button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+  .hint { position: absolute; right: 12px; bottom: 14px; font: 400 11px var(--f-mono); color: var(--muted); }
+  #building { position: absolute; inset: 0; display: grid; place-items: center; font: 500 13px var(--f-mono); color: var(--muted); background: var(--stage); }
+  .spec { display: grid; gap: 14px; min-width: 0; }
+  .eyebrow { margin: 0; font: 500 12px/1 var(--f-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--accent); }
+  .spec h2 { margin: 0; font: 600 32px/1.05 var(--f-display); text-wrap: balance; }
+  .spec > p { margin: 0; color: var(--muted); max-width: 65ch; }
+  dl { margin: 0; display: grid; grid-template-columns: auto 1fr; border-top: 1px solid var(--line); }
+  dt, dd { padding: 9px 0; border-bottom: 1px solid var(--line); margin: 0; }
+  dt { font: 500 11px/1.6 var(--f-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); padding-right: 16px; }
+  dd { font: 500 14px/1.4 var(--f-mono); text-align: right; font-variant-numeric: tabular-nums; }
+  .spec h3 { margin: 6px 0 0; font: 500 11px/1 var(--f-mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+  .features { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+  .features li { padding-left: 16px; position: relative; font-size: 14px; }
+  .features li::before { content: ""; position: absolute; left: 0; top: .6em; width: 7px; height: 1.5px; background: var(--accent); }
+  .scale-note { font: 400 12px var(--f-mono); color: var(--muted); }
+
+  @media (max-width: 900px) {
+    .bench { grid-template-columns: minmax(0, 1fr); }
+    .stage { height: 62vh; min-height: 320px; }
+    .hint { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) { .thumb img, .thumb { transition: none; } }
+
+  .thumbmode body { background: transparent; }
+  .thumbmode .wrap { padding: 0; max-width: none; }
+  .thumbmode .dbar, .thumbmode .spec, .thumbmode .tools, .thumbmode .hint, .thumbmode #building { display: none; }
+  .thumbmode .bench { display: block; }
+  .thumbmode .stage { width: 800px; height: 600px; min-height: 0; background: transparent; border-radius: 0; }
+</style>
+
+<div class="wrap">
+  <section id="library">
+    <header class="mast">
+      <div class="brand">
+        <small>Lordville · procedural 3D props</small>
+        <h1>Asset Library</h1>
+      </div>
+      <div class="search">
+        <label for="q">Search</label>
+        <input id="q" type="search" placeholder="Name, code or material" autocomplete="off">
+      </div>
+    </header>
+    <div class="bar">
+      <div id="filters" role="group" aria-label="Category"></div>
+      <span id="count"></span>
+    </div>
+    <div id="grid"></div>
+  </section>
+
+  <section id="detail" hidden>
+    <div class="dbar">
+      <a class="back" href="#">← Library</a>
+      <div class="stepper">
+        <a id="d-prev" href="#" aria-label="Previous asset">←</a>
+        <span id="d-pos"></span>
+        <a id="d-next" href="#" aria-label="Next asset">→</a>
+      </div>
+    </div>
+    <div class="bench">
+      <div class="stage">
+        <canvas id="view" tabindex="0" aria-label="3D view. Drag to orbit, scroll or pinch to zoom."></canvas>
+        <div class="tools">
+          <button id="t-rotate" type="button" aria-pressed="false">Auto-rotate</button>
+          <button id="t-wire" type="button" aria-pressed="false">Wireframe</button>
+          <button id="t-reset" type="button">Reset view</button>
+        </div>
+        <span class="hint">drag · scroll · right-drag to pan</span>
+        <div id="building">Building model…</div>
+      </div>
+      <aside class="spec">
+        <p class="eyebrow" id="d-eyebrow"></p>
+        <h2 id="d-name"></h2>
+        <p id="d-summary"></p>
+        <dl>
+          <dt>Size</dt><dd id="d-size"></dd>
+          <dt>Triangles</dt><dd id="d-tris"></dd>
+          <dt>Meshes</dt><dd id="d-meshes"></dd>
+          <dt>Materials</dt><dd id="d-mats"></dd>
+          <dt>Added</dt><dd id="d-added"></dd>
+        </dl>
+        <h3>Details</h3>
+        <ul class="features" id="d-features"></ul>
+        <p class="scale-note">Built in the browser from code. 1 scene unit = 10 cm.</p>
+      </aside>
+    </div>
+  </section>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+<script type="module" src="src/app.js"></script>
