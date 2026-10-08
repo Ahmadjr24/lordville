@@ -35,6 +35,7 @@ A browsable library of procedural 3D props. Every model is built in the browser 
 | WPN-007 | Sniper rifle |
 | WPN-008 | Suppressor |
 | WPN-009 | M16A2 rifle |
+| WPN-010 | K-12 Sport pistol |
 
 ## Layout
 
