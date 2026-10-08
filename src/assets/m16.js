@@ -49,14 +49,15 @@ function handguard(x0, x1, r, cy, mat) {
     for (let j = 0; j <= nt; j++) {
       const th = j / nt * Math.PI * 2, s = Math.sin(th);
       const band = smooth(.05, .09, Math.abs(s));  // hairline gap only at the side seams between the two rib rows
-      const rr = (r - .04 * (1 - endTaper)) + .035 * rib * band;
+      const rr = (r - .04 * (1 - endTaper)) + .022 * rib * band;
       pos.push(x, cy + rr * Math.sin(th), rr * Math.cos(th));
-      c.copy(gap).lerp(top, rib * band); col.push(c.r, c.g, c.b);   // dark floors between pads so the ribs read under any light
+      c.copy(rib * band > .97 ? top : gap); col.push(c.r, c.g, c.b);   // dark floors between pads so the ribs read under any light
     }
   }
-  for (let i = 0; i < nx; i++) for (let j = 0; j < nt; j++) { const a = i * (nt + 1) + j, b = a + nt + 1; idx.push(a, a + 1, b, b, a + 1, b + 1); }
-  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.setIndex(idx); g.computeVertexNormals();
-  const shell = mat.clone(); shell.vertexColors = true; shell.color.set(0xffffff); shell.roughness = .55;
+  for (let i = 0; i < nx; i++) for (let j = 0; j < nt; j++) { const a = i * (nt + 1) + j, b = a + nt + 1; idx.push(a, b, a + 1, b, b + 1, a + 1); }   // outward-facing winding
+  let g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.setIndex(idx);
+  g = g.toNonIndexed(); g.computeVertexNormals();   // faceted normals keep the rib shoulders crisp instead of glinting
+  const shell = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .85, metalness: 0 });
   const H = new THREE.Group(); H.add(mesh(g, shell));
   // inner wall and annular end faces so the open ends read as a solid shell
   const inner = mat.clone(); inner.side = THREE.BackSide; inner.color.multiplyScalar(.6);
@@ -140,11 +141,10 @@ export function build() {
   G.add(part('handle', .12, anod, { bevel: .014 }));
   // rear of the upper: one smooth slope from the stock face up to the sight base, charging-handle T behind it
   G.add(mesh(extrude(shapeFrom([[2.74, .07], [2.74, .11], [2.96, .26], [3.1, .26], [3.1, .07]]), .2, .014, { segs: 4 }), anod));
-  const ch = mesh(new RoundedBoxGeometry(.09, .055, .4, 2, .02), anod); ch.position.set(2.88, .27, 0); G.add(ch);
-  const chs = mesh(new RoundedBoxGeometry(.2, .05, .12, 2, .015), anod); chs.position.set(2.97, .26, 0); G.add(chs);
-  const chLatch = mesh(new RoundedBoxGeometry(.09, .05, .12, 2, .015), anod); chLatch.position.set(2.89, .275, -.24); G.add(chLatch);
-  for (let k = 0; k < 3; k++) { const sr = mesh(new THREE.BoxGeometry(.006, .052, .1), GM.dark); sr.position.set(2.86 + k * .025, .3, -.24); G.add(sr); }
-  // A2 rear sight: windage knob (right), elevation drum, flip aperture
+  // charging handle: flat T flush with the top of the upper, right behind the sight base, latch in the left wing
+  const ch = mesh(new RoundedBoxGeometry(.08, .05, .4, 2, .015), anod); ch.position.set(2.995, .225, 0); G.add(ch);
+  const chLatch = mesh(new RoundedBoxGeometry(.12, .045, .07, 2, .012), anod); chLatch.position.set(2.985, .225, -.185); G.add(chLatch);
+  for (let k = 0; k < 3; k++) { const sr = mesh(new THREE.BoxGeometry(.006, .047, .06), GM.dark); sr.position.set(2.94 + k * .02, .225, -.19); G.add(sr); }
   // A2 rear sight base: two side walls (ears) with the flip aperture between them, a knurled
   // elevation drum sitting inside the ears, and a large knurled windage knob on the right
   for (const s of [1, -1]) { const ear = mesh(new RoundedBoxGeometry(.29, .15, .03, 3, .014), anod); ear.position.set(3.195, .61, s * .11); G.add(ear); }

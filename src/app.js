@@ -63,7 +63,7 @@ function initViewer() {
   controls.enableDamping = true;
   controls.maxPolarAngle = Math.PI * .495;
   controls.autoRotateSpeed = 1.4;
-  scene.add(new THREE.HemisphereLight(0xffffff, 0x8a8178, .35));
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x5a5650, .7));
   const key = new THREE.DirectionalLight(0xfff3e4, 3);
   key.castShadow = true;
   const SM = innerWidth < 800 ? 2048 : 4096;
@@ -72,7 +72,7 @@ function initViewer() {
   scene.add(key, key.target);
   const rim = new THREE.DirectionalLight(0xdde7ff, .9); scene.add(rim);
   const fill = new THREE.DirectionalLight(0xffffff, .35); scene.add(fill);
-  const fill2 = new THREE.DirectionalLight(0xf2f4ff, .8); scene.add(fill2); // lifts the far (left) side
+  const fill2 = new THREE.DirectionalLight(0xf2f4ff, 1.0); scene.add(fill2); // lifts the far (left) side
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(400, 400),
     THUMB ? new THREE.ShadowMaterial({ opacity: .22 }) : new THREE.MeshStandardMaterial({ roughness: .94, envMapIntensity: .5 }));
   floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
