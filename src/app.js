@@ -63,7 +63,7 @@ function initViewer() {
   controls.enableDamping = true;
   controls.maxPolarAngle = Math.PI * .495;
   controls.autoRotateSpeed = 1.4;
-  scene.add(new THREE.HemisphereLight(0xffffff, 0x8a8178, .35));
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x5a5650, .7));
   const key = new THREE.DirectionalLight(0xfff3e4, 3);
   key.castShadow = true;
   const SM = innerWidth < 800 ? 2048 : 4096;
@@ -72,10 +72,11 @@ function initViewer() {
   scene.add(key, key.target);
   const rim = new THREE.DirectionalLight(0xdde7ff, .9); scene.add(rim);
   const fill = new THREE.DirectionalLight(0xffffff, .35); scene.add(fill);
+  const fill2 = new THREE.DirectionalLight(0xf2f4ff, 1.0); scene.add(fill2); // lifts the far (left) side
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(400, 400),
     THUMB ? new THREE.ShadowMaterial({ opacity: .22 }) : new THREE.MeshStandardMaterial({ roughness: .94, envMapIntensity: .5 }));
   floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
-  V = { renderer, scene, camera, controls, key, rim, fill, floor, current: null, raf: 0 };
+  V = { renderer, scene, camera, controls, key, rim, fill, fill2, floor, current: null, raf: 0 };
   applyStageColors();
   const ro = new ResizeObserver(() => resize()); ro.observe(canvas.parentElement);
   resize();
@@ -119,7 +120,7 @@ async function loadAsset(meta) {
   return cache.get(meta.id);
 }
 function frame(meta, box) {
-  const { camera, controls, key, rim, fill } = V;
+  const { camera, controls, key, rim, fill, fill2 } = V;
   const sphere = box.getBoundingSphere(new THREE.Sphere()), r = sphere.radius, c = sphere.center;
   const az = meta.view?.az ?? .5, el = meta.view?.el ?? .3;
   const dir = new THREE.Vector3(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el));
@@ -144,6 +145,7 @@ function frame(meta, box) {
   key.shadow.camera.updateProjectionMatrix();
   rim.position.copy(c).add(new THREE.Vector3(.7, .5, -.9).multiplyScalar(r * 4));
   fill.position.copy(c).add(new THREE.Vector3(.6, .2, .9).multiplyScalar(r * 4));
+  fill2.position.copy(c).add(new THREE.Vector3(-.3, .45, -.9).multiplyScalar(r * 4));
 }
 function loop() {
   V.controls.update();
@@ -207,11 +209,15 @@ function route() {
 /* ------------------------------------------------------------------ boot */
 if (THUMB) {
   document.documentElement.classList.add('thumbmode');
-  const meta = ASSETS.find(a => a.id === THUMB);
+  // review renders can override the camera: ?thumb=id&az=..&el=..&zoom=..
+  const q = new URLSearchParams(location.search), base = ASSETS.find(a => a.id === THUMB);
+  const meta = q.has('az') ? { ...base, view: { az: +q.get('az'), el: +(q.get('el') ?? .2) } } : base;
+  if (q.has('zoom')) document.documentElement.style.setProperty('--zoom', q.get('zoom'));
   $('#library').hidden = true; $('#detail').hidden = false;
   initViewer(); resize();
   loadAsset(meta).then(res => {
     V.scene.add(res.obj); frame(meta, res.box);
+    if (q.has('zoom')) { const z = +q.get('zoom'); V.camera.position.lerp(V.controls.target, 1 - 1 / z); if (q.has('tx')) { const d = new THREE.Vector3(+q.get('tx'), +(q.get('ty') ?? 0), 0).applyMatrix4(res.obj.matrixWorld).sub(V.controls.target); V.camera.position.add(d); V.controls.target.add(d); } V.camera.lookAt(V.controls.target); }
     for (let k = 0; k < 3; k++) V.renderer.render(V.scene, V.camera);
     window.__thumb = $('#view').toDataURL('image/webp', .9);
   });

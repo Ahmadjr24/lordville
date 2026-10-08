@@ -357,6 +357,20 @@ export const ASSETS = [
     ],
   },
   {
+    id: 'm16', code: 'WPN-009', name: 'M16A2 rifle', category: 'weapons', added: '2026-10-08',
+    pose: { rotY: 0, lift: .3 }, view: { az: .25, el: .12 },
+    summary: 'M16A2 service rifle, 1006 mm, modelled from traced reference photographs.',
+    features: [
+      'Silhouette and proportions traced from a reference photograph at true scale (1006 mm overall, 20" barrel)',
+      'Anodised upper and lower receivers, parkerised barrel and front sight base, black polymer furniture, grey aluminium magazine',
+      'Carry handle with A2 rear sight: windage knob, elevation drum and flip aperture',
+      'Forward assist, brass deflector, ejection port dust cover, charging handle',
+      'Round A2 handguards with two bands of ribs, delta ring and handguard cap',
+      'Selector marked SAFE / SEMI / BURST, bolt catch, magazine release with fence',
+      'A2 front sight base with bayonet lug and swivel; birdcage flash hider closed at the bottom',
+    ],
+  },
+  {
     id: 'k12', code: 'WPN-010', name: 'K-12 Sport pistol', category: 'weapons', added: '2026-10-08',
     pose: { rotY: 0, lift: .3 }, view: { az: .3, el: .12 },
     summary: 'Full-size 9 mm competition pistol, traced from a side photograph at its 216 mm length.',
