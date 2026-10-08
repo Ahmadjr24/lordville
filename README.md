@@ -37,6 +37,8 @@ A browsable library of procedural 3D props. Every model is built in the browser 
 | WPN-009 | M16A2 rifle |
 | WPN-010 | K-12 Sport pistol |
 | WPN-011 | Hellion bullpup rifle |
+| WPN-012 | 686 stainless revolver |
+| WPN-013 | AR-15 pistol |
 
 ## Layout
 
