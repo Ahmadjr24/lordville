@@ -2,8 +2,31 @@
 // (see m16-profiles.js) so the silhouette and proportions match the real rifle: 1006 mm overall,
 // 508 mm barrel. Anodised aluminium receivers, parkerised barrel and front sight base, black
 // polymer furniture, grey aluminium 30-round magazine. x toward the muzzle, y up, z = right side.
-import { THREE, RoundedBoxGeometry, V, smooth, mesh, mkCanvas, tex, curve, freeFrames, sweepGeo, latheAxis, shapeFrom, extrude, label, knurlCanvas, stippleCanvas, HM, GM, grooves } from '../kit.js';
-import { P } from './m16-profiles.js';
+import { THREE, RoundedBoxGeometry, V, smooth, mesh, mkCanvas, tex, curve, freeFrames, sweepGeo, latheAxis, shapeFrom, rrPts, extrude, label, knurlCanvas, stippleCanvas, HM, GM, grooves } from '../kit.js';
+import { P as RAW } from './m16-profiles.js';
+
+// Clean-ups on the traced outlines: square off the stock's front face, close the notch the
+// photo left in the magwell front wall, and give the trigger guard a clean rounded opening.
+const P = structuredClone(RAW);
+P.stock.outline = P.stock.outline.map(([x, y]) => [Math.min(x, 2.74), y]);
+{
+  const lo = P.lower.outline, i0 = lo.findIndex(p => p[0] > 4.58 && p[1] < -.76), i1 = lo.findIndex(p => p[0] > 4.69 && p[1] > -.4);
+  P.lower.outline = [...lo.slice(0, i0), [4.59, -.77], [4.6, -.47], ...lo.slice(i1)];
+  P.lower.holes = [rrPts(3.51, -.815, .345, .205, .085, 8).reverse()];
+}
+
+// Lathe over part of a revolution (around x) with flat caps on both cut planes.
+function sectorLathe(prof, phi0, dphi, mat, capMat = mat, seg = 24) {
+  const g = new THREE.Group(), pts = prof.map(([r, h]) => new THREE.Vector2(r, h));
+  const lg = new THREE.LatheGeometry([...pts, pts[0]], seg, phi0, dphi); lg.rotateZ(-Math.PI / 2);
+  g.add(mesh(lg, mat));
+  const sh = new THREE.Shape(prof.map(([r, h]) => new THREE.Vector2(h, r)));
+  for (const phi of [phi0, phi0 + dphi]) {
+    const cg = new THREE.ShapeGeometry(sh); cg.rotateX(Math.PI / 2); cg.rotateX(phi);   // plane containing the x axis at angle phi
+    const m = mesh(cg, capMat); m.material.side = THREE.DoubleSide; g.add(m);
+  }
+  return g;
+}
 
 const part = (name, depth, mat, o = {}) => {
   const p = P[name];
@@ -17,27 +40,32 @@ function handguard(x0, x1, r, cy, mat) {
   for (let i = 0; i <= nx; i++) {
     const x = x0 + (x1 - x0) * i / nx, u = (x - x0 - .08) / P0, f = u - Math.floor(u);
     const inRange = x > x0 + .08 && x < x1 - .08;
-    const rib = inRange ? smooth(.12, .22, f) * (1 - smooth(.78, .88, f)) : 0;
-    const endTaper = smooth(x0, x0 + .05, x) * smooth(x1, x1 - .05, x);
+    const rib = inRange ? smooth(.16, .19, f) * (1 - smooth(.81, .84, f)) : 0;
+    const endTaper = smooth(x0, x0 + .15, x) * smooth(x1, x1 - .15, x);
     for (let j = 0; j <= nt; j++) {
       const th = j / nt * Math.PI * 2, s = Math.sin(th);
       const band = smooth(.14, .3, Math.abs(s)) * (1 - smooth(.93, .985, Math.abs(s)));  // gap at the side seams and the top/bottom centre lines
-      const rr = (r - .012 * (1 - endTaper)) + .016 * rib * band;
+      const rr = (r - .04 * (1 - endTaper)) + .028 * rib * band;
       pos.push(x, cy + rr * Math.sin(th), rr * Math.cos(th));
     }
   }
   for (let i = 0; i < nx; i++) for (let j = 0; j < nt; j++) { const a = i * (nt + 1) + j, b = a + nt + 1; idx.push(a, a + 1, b, b, a + 1, b + 1); }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
-  return mesh(g, mat);
+  const H = new THREE.Group(); H.add(mesh(g, mat));
+  // inner wall and annular end faces so the open ends read as a solid shell
+  const inner = mat.clone(); inner.side = THREE.BackSide; inner.color.multiplyScalar(.6);
+  H.add(mesh(latheAxis([[.22, x0], [.22, x1]], 'x', 64).translate(0, cy, 0), inner));
+  for (const [x, s] of [[x0, -1], [x1, 1]]) { const ring = mesh(new THREE.RingGeometry(.22, r - .04, 64), mat); ring.rotation.y = s * Math.PI / 2; ring.position.set(x, cy, 0); H.add(ring); }
+  return H;
 }
 
 export function build() {
   const G = new THREE.Group();
-  const anod = new THREE.MeshPhysicalMaterial({ color: 0x3b3d40, metalness: .35, roughness: .55, clearcoat: .15, clearcoatRoughness: .6,
+  const anod = new THREE.MeshPhysicalMaterial({ color: 0x3b3d40, metalness: .35, roughness: .58, clearcoat: .05, clearcoatRoughness: .6,
     bumpMap: tex(stippleCanvas(), { repeat: [8, 8], color: false }), bumpScale: .25 });
-  const park = new THREE.MeshStandardMaterial({ color: 0x2c2e2c, metalness: .55, roughness: .6, bumpMap: tex(stippleCanvas(), { repeat: [10, 10], color: false }), bumpScale: .3 });
+  const park = new THREE.MeshStandardMaterial({ color: 0x3a3b37, metalness: .45, roughness: .7, bumpMap: tex(stippleCanvas(), { repeat: [10, 10], color: false }), bumpScale: .3 });
   const poly = new THREE.MeshPhysicalMaterial({ color: 0x19191a, roughness: .62, clearcoat: .08, bumpMap: tex(stippleCanvas(), { repeat: [6, 6], color: false }), bumpScale: .2 });
-  const magMat = new THREE.MeshPhysicalMaterial({ color: 0x6b7178, metalness: .5, roughness: .5, clearcoat: .15 });
+  const magMat = new THREE.MeshStandardMaterial({ color: 0x5a5e63, metalness: .25, roughness: .65 });
   const checker = poly.clone(); checker.bumpMap = tex(knurlCanvas(6), { repeat: [10, 10], color: false }); checker.bumpScale = 2.5;
   const dark = GM.dark;
 
@@ -46,8 +74,10 @@ export function build() {
   const bp = mesh(new RoundedBoxGeometry(.1, 1.24, .4, 3, .03), poly); bp.position.set(.05, -.58, 0); G.add(bp);
   const trap = mesh(new THREE.BoxGeometry(.004, .5, .22), dark); trap.position.set(-.003, -.55, 0); G.add(trap);
   for (const y of [-.12, -1.0]) { const sc = mesh(new THREE.CylinderGeometry(.025, .025, .01, 16), GM.nitride); sc.rotation.z = Math.PI / 2; sc.position.set(-.003, y, 0); G.add(sc); }
-  const sw = mesh(new THREE.TorusGeometry(.065, .014, 8, 24, Math.PI * 1.2), GM.nitride); sw.position.set(.42, -1.2, 0); sw.rotation.z = Math.PI * .9; G.add(sw);
+  const ear = mesh(new RoundedBoxGeometry(.08, .05, .06, 2, .015), GM.nitride); ear.position.set(.45, -1.15, 0); G.add(ear);
+  const sw = mesh(new THREE.TorusGeometry(.075, .006, 8, 32), GM.nitride); sw.scale.set(2, 1, 1); sw.position.set(.45, -1.24, 0); sw.rotation.x = .25; G.add(sw);
   G.add(part('grip', .2, poly, { bevel: .05, segs: 5 }));
+  const swell = mesh(new THREE.SphereGeometry(1, 24, 16), poly); swell.scale.set(.05, .09, .1); swell.position.set(3.225, -1.06, 0); G.add(swell);
   for (const s of [1, -1]) {
     const pnl = new THREE.Mesh(extrude(shapeFrom([[2.95, -.62], [3.3, -.6], [3.2, -1.2], [2.9, -1.33], [2.82, -1.25]]), .004, 0), checker);
     pnl.position.z = s * .151; G.add(pnl);
@@ -75,8 +105,8 @@ export function build() {
   const lmk = label([['LV ARMS', .6, 700], ['M16A2  CAL 5.56 MM', .5, 600], ['SN 9104622', .45, 500]], .7, .2, { color: '#a8acb2', metal: .5, rough: .4 });
   lmk.position.set(4.25, -.5, -.1135); lmk.rotation.y = Math.PI; G.add(lmk);
   // trigger
-  const tp = curve([V(3.48, -.47, 0), V(3.52, -.56, 0), V(3.5, -.64, 0), V(3.44, -.68, 0)], 24);
-  G.add(mesh(sweepGeo(freeFrames(tp, V(0, 0, 1), V(1, 0, 0)), { center: true, width: .05, thick: .035, round: 3 }), GM.nitride));
+  const tp = curve([V(3.62, -.56, 0), V(3.66, -.64, 0), V(3.65, -.72, 0), V(3.6, -.77, 0)], 24);
+  G.add(mesh(sweepGeo(freeFrames(tp, V(0, 0, 1), V(1, 0, 0)), { center: true, width: .06, thick: .04, round: 3 }), GM.nitride));
 
   /* magazine: grey aluminium STANAG with stiffening ribs and black floorplate */
   G.add(part('mag', .2, magMat, { bevel: .012 }));
@@ -87,6 +117,9 @@ export function build() {
     const rp = []; for (let k = 0; k <= 24; k++) { const y = my0 + (my1 - my0) * k / 24, [a, b] = span(mo, y); rp.push(V(a + (b - a) * f, y, s * .112)); }
     G.add(mesh(sweepGeo(freeFrames(rp, V(0, 0, 1), V(1, .1, 0)), { center: true, width: .03, thick: .04, round: 3 }), magMat));
   }
+  // flared magwell lip around the magazine
+  { const [a, b] = span(mo, -.79), outer = shapeFrom(rrPts(a - .025, -.135, b - a + .05, .27, .02), [rrPts(a + .005, -.105, b - a - .01, .21, .01).reverse()]);
+    const lip = mesh(extrude(outer, .05, .006), anod); lip.rotation.x = Math.PI / 2; lip.position.y = -.77; G.add(lip); }
   // black floorplate across the bottom of the magazine
   { const yb = Math.min(...mo.map(p => p[1])), [a, b] = span(mo, yb + .04);
     const fp = mesh(new RoundedBoxGeometry(b - a + .03, .07, .245, 2, .02), poly); fp.position.set((a + b) / 2, yb + .03, 0); fp.rotation.z = .12; G.add(fp); }
@@ -96,54 +129,72 @@ export function build() {
   G.add(part('handle', .12, anod, { bevel: .014 }));
   G.add(part('chandle', .26, anod, { bevel: .012 }));
   // A2 rear sight: windage knob (right), elevation drum, flip aperture
-  const knob = mesh(latheAxis([[0, 0], [.07, 0], [.075, .01], [.075, .06], [.06, .07], [0, .07]], 'z', 32), HM.knurled(0x3b3d40, [12, 1])); knob.position.set(3.18, .53, .06); G.add(knob);
-  const drum = mesh(new THREE.CylinderGeometry(.08, .08, .2, 32), HM.knurled(0x3b3d40, [16, 1])); drum.rotation.x = Math.PI / 2; drum.position.set(3.12, .16, 0); G.add(drum);
-  const drumMk = label([['8/3  4  5  6', .8, 600]], .14, .03, { color: '#e8e6dc' }); drumMk.position.set(3.12, .16, .101); G.add(drumMk);
-  const ap = new THREE.Mesh(extrude(shapeFrom([[3.12, .26], [3.24, .26], [3.24, .46], [3.12, .46]], [[[3.165, .385], [3.195, .385], [3.195, .355], [3.165, .355]]]), .05, .006), anod);
-  G.add(ap);
+  for (const s of [1, -1]) G.add(mesh(extrude(shapeFrom([[3.08, .55], [3.3, .55], [3.3, .7], [3.25, .75], [3.12, .75], [3.08, .7]]), .03, .005), anod).translateZ(s * .07));
+  const knob = mesh(latheAxis([[0, 0], [.07, 0], [.07, .075], [.055, .09], [0, .09]], 'z', 40), HM.knurled(0x3b3d40, [14, 1])); knob.position.set(3.2, .62, .07); G.add(knob);
+  const kmk = mesh(new THREE.BoxGeometry(.006, .08, .004), GM.white); kmk.position.set(3.2, .62, .162); G.add(kmk);
+  const drum = mesh(latheAxis([[.11, -.1], [.11, .1]], 'z', 48), HM.knurled(0x3b3d40, [18, 1])); drum.position.set(3.19, .45, 0); G.add(drum);
+  for (const s of [1, -1]) { const cap = mesh(new THREE.CircleGeometry(.105, 48), anod); cap.position.set(3.19, .45, s * .1); cap.rotation.y = s < 0 ? Math.PI : 0; G.add(cap); }
+  const drumMk = label([['8/3  4  5  6', .8, 600]], .16, .03, { color: '#e8e6dc' }); drumMk.position.set(3.19, .45, .101); G.add(drumMk);
+  const ap = new THREE.Mesh(extrude(shapeFrom([[3.17, .55], [3.21, .55], [3.21, .72], [3.17, .72]]), .1, .004), anod); G.add(ap);
+  const apHole = mesh(new THREE.CylinderGeometry(.012, .012, .05, 16), GM.dark); apHole.rotation.z = Math.PI / 2; apHole.position.set(3.19, .66, 0); G.add(apHole);
   // ejection port with its dust cover, hinge rod and latch bump
-  const port = mesh(new RoundedBoxGeometry(.8, .16, .02, 2, .006), new THREE.MeshPhysicalMaterial({ color: 0x232426, metalness: .5, roughness: .45 }));
-  port.position.set(4.2, .005, .107); G.add(port);
-  const latch = mesh(new RoundedBoxGeometry(.1, .04, .03, 2, .01), GM.nitride); latch.position.set(4.15, .07, .118); G.add(latch);
-  const hinge = mesh(new THREE.CylinderGeometry(.012, .012, .82, 12), GM.nitride); hinge.rotation.z = Math.PI / 2; hinge.position.set(4.2, -.08, .115); G.add(hinge);
-  G.add(grooves(3.9, 4.5, 7, .02, .12, .118, { w: .006, d: .004, mat: new THREE.MeshStandardMaterial({ color: 0x151516, roughness: .7 }) }));
-  // brass deflector and forward assist (right rear of the upper)
-  const defl = mesh(new RoundedBoxGeometry(.15, .17, .07, 3, .03), anod); defl.position.set(3.45, -.01, .1); G.add(defl);
-  const fa = mesh(latheAxis([[.065, 3.52], [.07, 3.56], [.07, 3.82]], 'x', 32), anod); fa.position.set(0, .13, .1); fa.rotation.y = .12; G.add(fa);
-  const fab = mesh(new RoundedBoxGeometry(.07, .12, .1, 2, .025), GM.nitride); fab.position.set(3.5, .14, .12); G.add(fab);
-  G.add(grooves(3.47, 3.47, 1, .14, .1, .171, { w: .004, d: .004 }));
+  const coverMat = new THREE.MeshStandardMaterial({ color: 0x2e3032, metalness: .5, roughness: .5 });
+  const recess = mesh(new THREE.BoxGeometry(.8, .17, .004), GM.dark); recess.position.set(4.2, .005, .1145); G.add(recess);
+  const cover = mesh(new RoundedBoxGeometry(.78, .15, .006, 2, .002), coverMat); cover.position.set(4.2, .005, .117); G.add(cover);
+  const crib = mesh(new RoundedBoxGeometry(.7, .03, .008, 2, .003), coverMat); crib.position.set(4.22, .04, .121); G.add(crib);
+  const latch = mesh(new RoundedBoxGeometry(.07, .04, .02, 2, .008), coverMat); latch.position.set(3.87, .06, .124); G.add(latch);
+  const hinge = mesh(new THREE.CylinderGeometry(.011, .011, .82, 12), coverMat); hinge.rotation.z = Math.PI / 2; hinge.position.set(4.2, -.075, .118); G.add(hinge);
+  // brass deflector: wedge behind the port, tallest at its rear, sloping into the receiver toward the port
+  { const w = new THREE.Shape(); w.moveTo(3.6, 0); w.lineTo(3.62, .11); w.lineTo(3.68, .118); w.lineTo(3.8, 0); w.closePath();
+    const g = extrude(w, .16, .008); g.rotateX(Math.PI / 2); g.translate(0, .06, .114);
+    G.add(mesh(g, anod)); }
+  // forward assist: tube proud of the right side, tilted down toward the front, serrated plunger at the rear
+  { const FA = new THREE.Group(); FA.position.set(3.4, .1, .14); FA.rotation.z = -.17;
+    FA.add(mesh(latheAxis([[.085, 0], [.09, .02], [.09, .3], [.07, .35]], 'x', 40), anod));
+    FA.add(mesh(latheAxis([[.0, -.08], [.06, -.08], [.075, -.07], [.075, .01]], 'x', 40), GM.nitride));
+    for (let k = 0; k < 8; k++) { const r = mesh(new THREE.BoxGeometry(.06, .008, .012), GM.dark); const a = k / 8 * Math.PI * 2; r.position.set(-.04, Math.sin(a) * .074, Math.cos(a) * .074); r.rotation.x = -a; FA.add(r); }
+    const web = mesh(new RoundedBoxGeometry(.3, .1, .06, 2, .02), anod); web.position.set(.17, -.04, -.04); FA.add(web);
+    G.add(FA); }
   // charging handle latch (left)
   const chl = mesh(new RoundedBoxGeometry(.1, .05, .04, 2, .012), anod); chl.position.set(2.99, .2, -.15); G.add(chl);
 
   /* barrel nut, delta ring with weld-spring, A2 ribbed handguards, cap */
   const hy = -.037;
-  G.add(mesh(latheAxis([[.2, 4.77], [.3, 4.8], [.315, 4.83], [.315, 4.87], [.3, 4.9]], 'x', 64).translate(0, hy, 0), park));
-  G.add(mesh(latheAxis([[.31, 4.79], [.325, 4.81], [.325, 4.85], [.31, 4.87]], 'x', 64).translate(0, hy, 0), GM.nitride));
-  G.add(handguard(4.88, 7.86, .292, hy, poly));
-  for (const s of [1, -1]) { const seam = mesh(new THREE.BoxGeometry(2.9, .006, .006), dark); seam.position.set(6.37, hy, s * .3); G.add(seam); }
+  G.add(mesh(latheAxis([[.0, 4.78], [.19, 4.78], [.19, 4.84]], 'x', 48), park));
+  G.add(mesh(latheAxis([[.19, 4.83], [.32, 4.83], [.33, 4.84], [.33, 4.99], [.32, 5.0], [.29, 5.02]], 'x', 64).translate(0, hy, 0), park));
+  G.add(handguard(5.0, 7.86, .292, hy, poly));
+  for (const s of [1, -1]) { const seam = mesh(new THREE.BoxGeometry(2.8, .006, .006), dark); seam.position.set(6.43, hy, s * .3); G.add(seam); }
   G.add(mesh(latheAxis([[.29, 7.84], [.28, 7.9], [.24, 7.94], [.1, 7.95]], 'x', 64).translate(0, hy, 0), park));
 
-  /* barrel (A2 profile), gas tube stub, front sight base, bayonet lug, sling swivel */
-  G.add(mesh(latheAxis([[.1, 4.85], [.1, 7.95], [.085, 8.0], [.085, 9.58]], 'x', 48), park));
-  G.add(mesh(latheAxis([[.025, 7.9], [.025, 8.02]], 'x', 12).translate(0, .21, 0), park));
-  const fsbBody = mesh(new RoundedBoxGeometry(.48, .36, .2, 4, .06), park); fsbBody.position.set(8.2, -.01, 0); G.add(fsbBody);
-  G.add(mesh(latheAxis([[.12, 7.96], [.13, 7.98], [.13, 8.06], [.12, 8.08]], 'x', 32), park));
-  G.add(mesh(latheAxis([[.12, 8.36], [.13, 8.38], [.13, 8.46], [.12, 8.48]], 'x', 32), park));
-  const tri = P.fsb;
-  G.add(mesh(extrude(shapeFrom(tri.outline, tri.holes), .07, .012, { segs: 3 }), park));
-  const post = mesh(new THREE.BoxGeometry(.04, .2, .04), park); post.position.set(8.19, .44, 0); G.add(post);
-  const det = mesh(new THREE.CylinderGeometry(.03, .03, .03, 16), park); det.position.set(8.19, .3, 0); G.add(det);
-  const lug = mesh(new RoundedBoxGeometry(.16, .1, .08, 2, .02), park); lug.position.set(8.38, -.2, 0); G.add(lug);
-  const fsw = mesh(new THREE.TorusGeometry(.07, .015, 8, 24), GM.nitride); fsw.position.set(8.0, -.3, 0); G.add(fsw);
-  const pin1 = mesh(new THREE.CircleGeometry(.02, 16), dark); pin1.position.set(8.06, .08, .101); G.add(pin1);
-  const pin2 = mesh(new THREE.CircleGeometry(.02, 16), dark); pin2.position.set(8.32, .08, .101); G.add(pin2);
+  /* barrel: A2 profile is heavier forward of the front sight base */
+  G.add(mesh(latheAxis([[.08, 4.8], [.08, 7.95], [.095, 7.98], [.095, 9.58]], 'x', 48), park));
+  G.add(mesh(latheAxis([[.025, 7.86], [.025, 8.0]], 'x', 12).translate(0, .21, 0), park));
 
-  /* A2 "birdcage" flash hider: five slots, closed at the bottom */
-  G.add(mesh(latheAxis([[.09, 9.56], [.11, 9.6], [.114, 9.63], [.114, 10.0], [.105, 10.04], [.06, 10.06]], 'x', 48), park));
-  for (let k = 0; k < 5; k++) {
-    const a = Math.PI / 2 + (k - 2) * Math.PI / 3.2, s = mesh(new THREE.BoxGeometry(.3, .024, .03), dark);
-    s.position.set(9.83, Math.sin(a) * .112, Math.cos(a) * .112); s.rotation.x = -(a - Math.PI / 2); G.add(s);
+  /* A2 front sight base: collar around the barrel, gas block, A-frame tower split into two ears, square post */
+  G.add(mesh(latheAxis([[.12, 7.98], [.14, 8.0], [.14, 8.38], [.12, 8.4]], 'x', 48), park));
+  const gb = mesh(new RoundedBoxGeometry(.12, .16, .12, 2, .02), park); gb.position.set(8.02, .19, 0); G.add(gb);
+  const tri = P.fsb;
+  for (const s of [1, -1]) { const ear = mesh(extrude(shapeFrom(tri.outline, tri.holes), .05, .008, { segs: 2 }), park); ear.position.z = s * .08; G.add(ear); }
+  const fbase = mesh(new RoundedBoxGeometry(.52, .08, .22, 2, .02), park); fbase.position.set(8.17, .12, 0); G.add(fbase);
+  const post = mesh(new THREE.BoxGeometry(.019, .34, .03), park); post.position.set(8.19, .33, 0); G.add(post);
+  const det = mesh(new THREE.CylinderGeometry(.035, .035, .03, 16), park); det.position.set(8.19, .175, 0); G.add(det);
+  const lug = mesh(new RoundedBoxGeometry(.16, .1, .07, 2, .015), park); lug.position.set(8.36, -.18, 0); G.add(lug);
+  const fear = mesh(new RoundedBoxGeometry(.06, .06, .05, 2, .015), park); fear.position.set(8.05, -.15, 0); G.add(fear);
+  const fsw = mesh(new THREE.TorusGeometry(.075, .006, 8, 32), GM.nitride); fsw.scale.set(2, 1, 1); fsw.position.set(8.05, -.25, 0); fsw.rotation.x = .25; G.add(fsw);
+  for (const x of [8.06, 8.32]) { const pn = mesh(new THREE.CircleGeometry(.018, 16), dark); pn.position.set(x, .0, .141); G.add(pn); }
+
+  /* A2 "birdcage" flash hider: five real slots, closed at the bottom, flat crowned face */
+  const slotW = .27, slots = [-2, -1, 0, 1, 2].map(k => -(Math.PI / 2 + k * Math.PI / 3.2));   // lathe angle phi for each slot centre
+  const inside = new THREE.MeshStandardMaterial({ color: 0x141414, roughness: .8, side: THREE.DoubleSide });
+  G.add(mesh(latheAxis([[.09, 9.56], [.11, 9.6], [.11, 9.72]], 'x', 48), park));
+  G.add(mesh(latheAxis([[.11, 10.0], [.11, 10.03], [.095, 10.045], [.045, 10.045]], 'x', 48), park));
+  G.add(mesh(latheAxis([[.07, 9.7], [.07, 10.02]], 'x', 32), inside));
+  const norm = a => ((a % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+  const cuts = slots.map(c => norm(c)).sort((a, b) => a - b);
+  for (let i = 0; i < cuts.length; i++) {
+    const a0 = cuts[i] + slotW / 2, a1 = (i + 1 < cuts.length ? cuts[i + 1] : cuts[0] + Math.PI * 2) - slotW / 2;
+    G.add(sectorLathe([[.07, 9.72], [.11, 9.72], [.11, 10.0], [.07, 10.0]], a0, a1 - a0, park, inside));
   }
-  const bore = mesh(new THREE.CircleGeometry(.05, 24), dark); bore.rotation.y = Math.PI / 2; bore.position.set(10.061, 0, 0); G.add(bore);
+  const bore = mesh(new THREE.CircleGeometry(.045, 24), dark); bore.rotation.y = Math.PI / 2; bore.position.set(10.046, 0, 0); G.add(bore);
   return G;
 }

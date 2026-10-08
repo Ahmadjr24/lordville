@@ -72,10 +72,11 @@ function initViewer() {
   scene.add(key, key.target);
   const rim = new THREE.DirectionalLight(0xdde7ff, .9); scene.add(rim);
   const fill = new THREE.DirectionalLight(0xffffff, .35); scene.add(fill);
+  const fill2 = new THREE.DirectionalLight(0xf2f4ff, .45); scene.add(fill2); // lifts the far (left) side
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(400, 400),
     THUMB ? new THREE.ShadowMaterial({ opacity: .22 }) : new THREE.MeshStandardMaterial({ roughness: .94, envMapIntensity: .5 }));
   floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
-  V = { renderer, scene, camera, controls, key, rim, fill, floor, current: null, raf: 0 };
+  V = { renderer, scene, camera, controls, key, rim, fill, fill2, floor, current: null, raf: 0 };
   applyStageColors();
   const ro = new ResizeObserver(() => resize()); ro.observe(canvas.parentElement);
   resize();
@@ -119,7 +120,7 @@ async function loadAsset(meta) {
   return cache.get(meta.id);
 }
 function frame(meta, box) {
-  const { camera, controls, key, rim, fill } = V;
+  const { camera, controls, key, rim, fill, fill2 } = V;
   const sphere = box.getBoundingSphere(new THREE.Sphere()), r = sphere.radius, c = sphere.center;
   const az = meta.view?.az ?? .5, el = meta.view?.el ?? .3;
   const dir = new THREE.Vector3(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el));
@@ -144,6 +145,7 @@ function frame(meta, box) {
   key.shadow.camera.updateProjectionMatrix();
   rim.position.copy(c).add(new THREE.Vector3(.7, .5, -.9).multiplyScalar(r * 4));
   fill.position.copy(c).add(new THREE.Vector3(.6, .2, .9).multiplyScalar(r * 4));
+  fill2.position.copy(c).add(new THREE.Vector3(-.3, .45, -.9).multiplyScalar(r * 4));
 }
 function loop() {
   V.controls.update();
