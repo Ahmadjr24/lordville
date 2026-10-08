@@ -27,6 +27,13 @@ A browsable library of procedural 3D props. Every model is built in the browser 
 | TOL-010 | Crowbar |
 | TOL-011 | Ratchet and socket |
 | TOL-012 | Cordless drill |
+| GER-003 | Tactical backpack |
+| WPN-003 | Pistol |
+| WPN-004 | Revolver |
+| WPN-005 | AK-pattern rifle |
+| WPN-006 | Pump shotgun |
+| WPN-007 | Sniper rifle |
+| WPN-008 | Suppressor |
 
 ## Layout
 

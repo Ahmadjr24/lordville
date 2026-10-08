@@ -767,6 +767,46 @@ HM.paint = (color) => new THREE.MeshPhysicalMaterial({ color, roughness: .38, me
 HM.knurled = (color = 0x1c1d1f, rep = [20, 3]) => new THREE.MeshStandardMaterial({ color, metalness: .75, roughness: .36, bumpMap: tex(knurlCanvas(), { repeat: rep, color: false }), bumpScale: 2.5 });
 HM.wood = (base, rep = [1, 1]) => { const w = woodCanvas(base); return new THREE.MeshPhysicalMaterial({ map: tex(w, { repeat: rep }), roughness: .55, clearcoat: .5, clearcoatRoughness: .3, bumpMap: tex(w, { repeat: rep, color: false }), bumpScale: .5 }); };
 
+/* ------------------------------------------------------------------ firearms (display props) */
+const GM = {
+  nitride: new THREE.MeshPhysicalMaterial({ color: 0x1f2022, metalness: .7, roughness: .36, clearcoat: .15, clearcoatRoughness: .4 }),
+  blued: new THREE.MeshPhysicalMaterial({ color: 0x161a22, metalness: .95, roughness: .2, clearcoat: .5, clearcoatRoughness: .15 }),
+  stainless: new THREE.MeshStandardMaterial({ color: 0xbcc1c7, metalness: 1, roughness: .26,
+    roughnessMap: tex(brushedCanvas({ w: 128, h: 512, edges: [], base: 140 }), { repeat: [3, 1], color: false }) }),
+  park: new THREE.MeshStandardMaterial({ color: 0x2b2c2a, metalness: .55, roughness: .62, bumpMap: tex(stippleCanvas(), { repeat: [6, 6], color: false }), bumpScale: .4 }),
+  polymer: new THREE.MeshPhysicalMaterial({ color: 0x1c1c1e, roughness: .62, clearcoat: .1, bumpMap: tex(stippleCanvas(), { repeat: [5, 5], color: false }), bumpScale: .35 }),
+  dark: new THREE.MeshStandardMaterial({ color: 0x050505, roughness: .9 }),
+  white: new THREE.MeshStandardMaterial({ color: 0xf2f2ee, roughness: .4 }),
+};
+GM.cerakote = (color, rep = 4) => new THREE.MeshPhysicalMaterial({ color, metalness: .15, roughness: .58, clearcoat: .1, bumpMap: tex(stippleCanvas(), { repeat: [rep, rep], color: false }), bumpScale: .3 });
+GM.stipple = (color) => new THREE.MeshPhysicalMaterial({ color, roughness: .85, bumpMap: tex(stippleCanvas(), { repeat: [10, 10], color: false }), bumpScale: 3 });
+// side-profile part: extrude an [x, y] outline through its thickness (z), centred on z = zc
+function slab(pts, depth, mat, o = {}) {
+  const shape = pts instanceof THREE.Shape ? pts : shapeFrom(pts, o.holes || []);
+  const m = mesh(extrude(shape, depth, o.bevel ?? .01, { segs: o.segs ?? 3, curve: o.curve ?? 24 }), mat);
+  m.position.z = o.z ?? 0;
+  return m;
+}
+// MIL-STD-1913 Picatinny rail running along +x from x0, top at y (scene units, 1 = 10 cm)
+function picatinny(len, mat, o = {}) {
+  const g = new THREE.Group(), w = o.width ?? .212;
+  const base = mesh(new RoundedBoxGeometry(len, .035, w * .78, 2, .008), mat); base.position.set(len / 2, .0175, 0); g.add(base);
+  const n = Math.floor(len / .1001);
+  const lug = new THREE.InstancedMesh(new RoundedBoxGeometry(.052, .055, w, 2, .007), mat, n);
+  const m = new THREE.Matrix4();
+  for (let i = 0; i < n; i++) { m.makeTranslation(.05 + i * .1001, .06, 0); lug.setMatrixAt(i, m); }
+  lug.castShadow = lug.receiveShadow = true; g.add(lug);
+  return g;
+}
+// row of dark grooves (serrations, vents) as thin boxes, centred at (x0..x1, y), on face z
+function grooves(x0, x1, n, y, h, z, o = {}) {
+  const g = new THREE.InstancedMesh(new THREE.BoxGeometry(o.w ?? .016, h, o.d ?? .006), o.mat ?? GM.dark, n);
+  const m = new THREE.Matrix4(), q = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, o.tilt ?? 0));
+  for (let i = 0; i < n; i++) { m.compose(new THREE.Vector3(x0 + (x1 - x0) * (n === 1 ? .5 : i / (n - 1)), y, z), q, new THREE.Vector3(1, 1, 1)); g.setMatrixAt(i, m); }
+  return g;
+}
+
 export { bladeGeo, brushedCanvas, leatherCanvas, stippleCanvas };
+export { GM, slab, picatinny, grooves };
 export { latheAxis, shapeFrom, circlePts, rrPts, extrude, knurlCanvas, woodCanvas, label, HM };
 export { THREE, RoundedBoxGeometry, V, clamp, smooth, hash3, noise3, fbm, basisMatrix, place, mesh, mkCanvas, tex, addNoise, lighten, weaveCanvas, webbingCanvas, airmeshCanvas, braidCanvas, gauzeMaskCanvas, crepeCanvas, fineWeaveCanvas, prismCanvas, paperCanvas, decal, hatch, rrPath, crossPath, decalMat, fabric, webbing, M, SoftBox, smoothNormals, rrPieces, rrLen, rrAt, rrSample, rrS, finishFrames, surfFrames, freeFrames, sampleFrames, curve, profile, sweepGeo, Stitches, lerpPts, boxX, conformPlane, makePull, makeZipper, makeBuckle, makeLadder };
