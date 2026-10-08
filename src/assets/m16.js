@@ -36,15 +36,15 @@ const part = (name, depth, mat, o = {}) => {
 
 // A2 handguard: round, split top/bottom, two bands of raised rectangular ribs
 function handguard(x0, x1, r, cy, mat) {
-  const nx = 520, nt = 120, pos = [], idx = [], P0 = (x1 - x0 - .16) / 28;
+  const nx = 720, nt = 160, pos = [], idx = [], P0 = (x1 - x0 - .16) / 31;
   for (let i = 0; i <= nx; i++) {
     const x = x0 + (x1 - x0) * i / nx, u = (x - x0 - .08) / P0, f = u - Math.floor(u);
     const inRange = x > x0 + .08 && x < x1 - .08;
-    const rib = inRange ? smooth(.16, .19, f) * (1 - smooth(.81, .84, f)) : 0;
+    const rib = inRange ? smooth(.2, .24, f) * (1 - smooth(.76, .8, f)) : 0;   // flat-topped pads, square shoulders
     const endTaper = smooth(x0, x0 + .15, x) * smooth(x1, x1 - .15, x);
     for (let j = 0; j <= nt; j++) {
       const th = j / nt * Math.PI * 2, s = Math.sin(th);
-      const band = smooth(.14, .3, Math.abs(s)) * (1 - smooth(.93, .985, Math.abs(s)));  // gap at the side seams and the top/bottom centre lines
+      const band = smooth(.05, .09, Math.abs(s));  // hairline gap only at the side seams between the two rib rows
       const rr = (r - .04 * (1 - endTaper)) + .028 * rib * band;
       pos.push(x, cy + rr * Math.sin(th), rr * Math.cos(th));
     }
@@ -55,7 +55,7 @@ function handguard(x0, x1, r, cy, mat) {
   // inner wall and annular end faces so the open ends read as a solid shell
   const inner = mat.clone(); inner.side = THREE.BackSide; inner.color.multiplyScalar(.6);
   H.add(mesh(latheAxis([[.22, x0], [.22, x1]], 'x', 64).translate(0, cy, 0), inner));
-  for (const [x, s] of [[x0, -1], [x1, 1]]) { const ring = mesh(new THREE.RingGeometry(.22, r - .04, 64), mat); ring.rotation.y = s * Math.PI / 2; ring.position.set(x, cy, 0); H.add(ring); }
+  for (const [x, s] of [[x0, -1], [x1, 1]]) { const ring = mesh(new THREE.RingGeometry(s < 0 ? .07 : .22, r - .04, 64), mat); ring.rotation.y = s * Math.PI / 2; ring.position.set(x, cy, 0); H.add(ring); }
   return H;
 }
 
@@ -63,7 +63,7 @@ export function build() {
   const G = new THREE.Group();
   const anod = new THREE.MeshPhysicalMaterial({ color: 0x3b3d40, metalness: .35, roughness: .58, clearcoat: .05, clearcoatRoughness: .6,
     bumpMap: tex(stippleCanvas(), { repeat: [8, 8], color: false }), bumpScale: .25 });
-  const park = new THREE.MeshStandardMaterial({ color: 0x3a3b37, metalness: .45, roughness: .7, bumpMap: tex(stippleCanvas(), { repeat: [10, 10], color: false }), bumpScale: .3 });
+  const park = new THREE.MeshStandardMaterial({ color: 0x36383a, metalness: .4, roughness: .75, bumpMap: tex(stippleCanvas(), { repeat: [10, 10], color: false }), bumpScale: .3 });
   const poly = new THREE.MeshPhysicalMaterial({ color: 0x19191a, roughness: .62, clearcoat: .08, bumpMap: tex(stippleCanvas(), { repeat: [6, 6], color: false }), bumpScale: .2 });
   const magMat = new THREE.MeshStandardMaterial({ color: 0x5a5e63, metalness: .25, roughness: .65 });
   const checker = poly.clone(); checker.bumpMap = tex(knurlCanvas(6), { repeat: [10, 10], color: false }); checker.bumpScale = 2.5;
@@ -95,13 +95,18 @@ export function build() {
   const fence = mesh(new THREE.TorusGeometry(.06, .014, 8, 24), anod); fence.position.set(3.85, -.36, .115); G.add(fence);
   const mr = mesh(new RoundedBoxGeometry(.08, .08, .04, 2, .012), GM.nitride); mr.position.set(3.85, -.36, .122); G.add(mr);
   // selector lever and SAFE / SEMI / BURST markings (left side)
-  const sel = mesh(new RoundedBoxGeometry(.2, .05, .02, 2, .012), GM.nitride); sel.position.set(3.0, -.34, -.122); sel.rotation.z = .2; G.add(sel);
-  const selHub = mesh(new THREE.CylinderGeometry(.04, .04, .02, 20), GM.nitride); selHub.rotation.x = Math.PI / 2; selHub.position.set(3.05, -.35, -.12); G.add(selHub);
-  const selMk = label([['SAFE', .8, 700], ['SEMI', .8, 700], ['BURST', .8, 700]], .17, .18, { color: '#e8e6dc', align: 'center' });
-  selMk.position.set(2.92, -.36, -.1135); selMk.rotation.y = Math.PI; G.add(selMk);
+  const phos = new THREE.MeshStandardMaterial({ color: 0x2d2f31, metalness: .4, roughness: .6 });
+  const selHub = mesh(new THREE.CylinderGeometry(.045, .045, .02, 24), phos); selHub.rotation.x = Math.PI / 2; selHub.position.set(3.05, -.35, -.12); G.add(selHub);
+  const sel = mesh(extrude(shapeFrom([[2.99, -.32], [3.15, -.33], [3.24, -.35], [3.15, -.37], [2.99, -.38]]), .03, .006), phos); sel.position.z = -.13; G.add(sel);
+  for (const [t, x, y] of [['SAFE', 3.31, -.35], ['SEMI', 3.05, -.1], ['BURST', 2.79, -.35]]) {
+    const m = label([[t, .85, 700]], .09, .025, { color: '#bdbcb4', align: 'center' }); m.material.opacity = .75; m.material.transparent = true;
+    m.position.set(x, y, -.1135); m.rotation.y = Math.PI; G.add(m);
+  }
   // bolt catch (left side)
-  const bc = new THREE.Mesh(extrude(shapeFrom([[4.0, -.3], [4.18, -.3], [4.2, -.4], [4.1, -.48], [4.0, -.42]]), .02, .006), GM.nitride);
-  bc.position.z = -.125; G.add(bc);
+  const boss = mesh(new RoundedBoxGeometry(.06, .2, .02, 2, .008), anod); boss.position.set(3.95, -.29, -.118); G.add(boss);
+  const bc = mesh(extrude(shapeFrom([[3.86, -.37], [4.03, -.37], [4.05, -.44], [3.96, -.5], [3.86, -.45]]), .03, .006), phos); bc.position.z = -.13; G.add(bc);
+  for (let k = 0; k < 4; k++) { const sr = mesh(new THREE.BoxGeometry(.13, .006, .006), GM.dark); sr.position.set(3.955, -.425 - k * .016, -.152); G.add(sr); }
+  const rp = mesh(new THREE.CircleGeometry(.012, 12), GM.dark); rp.position.set(3.95, -.22, -.1295); rp.rotation.y = Math.PI; G.add(rp);
   const lmk = label([['LV ARMS', .6, 700], ['M16A2  CAL 5.56 MM', .5, 600], ['SN 9104622', .45, 500]], .7, .2, { color: '#a8acb2', metal: .5, rough: .4 });
   lmk.position.set(4.25, -.5, -.1135); lmk.rotation.y = Math.PI; G.add(lmk);
   // trigger
@@ -117,6 +122,7 @@ export function build() {
     const rp = []; for (let k = 0; k <= 24; k++) { const y = my0 + (my1 - my0) * k / 24, [a, b] = span(mo, y); rp.push(V(a + (b - a) * f, y, s * .112)); }
     G.add(mesh(sweepGeo(freeFrames(rp, V(0, 0, 1), V(1, .1, 0)), { center: true, width: .03, thick: .04, round: 3 }), magMat));
   }
+  const wall = mesh(new RoundedBoxGeometry(.18, .32, .2, 2, .01), anod); wall.position.set(4.59, -.615, 0); G.add(wall);
   // flared magwell lip around the magazine
   { const [a, b] = span(mo, -.79), outer = shapeFrom(rrPts(a - .025, -.135, b - a + .05, .27, .02), [rrPts(a + .005, -.105, b - a - .01, .21, .01).reverse()]);
     const lip = mesh(extrude(outer, .05, .006), anod); lip.rotation.x = Math.PI / 2; lip.position.y = -.77; G.add(lip); }
@@ -127,16 +133,23 @@ export function build() {
   /* upper receiver: body, carry handle with A2 sights, charging handle, forward assist, ejection port */
   G.add(part('upper', .2, anod, { bevel: .014 }));
   G.add(part('handle', .12, anod, { bevel: .014 }));
-  G.add(part('chandle', .26, anod, { bevel: .012 }));
+  // rear of the upper: one smooth slope from the stock face up to the sight base, charging-handle T behind it
+  G.add(mesh(extrude(shapeFrom([[2.74, .07], [2.74, .11], [2.96, .26], [3.1, .26], [3.1, .07]]), .2, .014, { segs: 4 }), anod));
+  const ch = mesh(new RoundedBoxGeometry(.08, .07, .3, 2, .02), anod); ch.position.set(2.70, .14, 0); G.add(ch);
+  const chs = mesh(new RoundedBoxGeometry(.1, .05, .1, 2, .015), anod); chs.position.set(2.76, .13, 0); G.add(chs);
   // A2 rear sight: windage knob (right), elevation drum, flip aperture
-  for (const s of [1, -1]) G.add(mesh(extrude(shapeFrom([[3.08, .55], [3.3, .55], [3.3, .7], [3.25, .75], [3.12, .75], [3.08, .7]]), .03, .005), anod).translateZ(s * .07));
-  const knob = mesh(latheAxis([[0, 0], [.07, 0], [.07, .075], [.055, .09], [0, .09]], 'z', 40), HM.knurled(0x3b3d40, [14, 1])); knob.position.set(3.2, .62, .07); G.add(knob);
-  const kmk = mesh(new THREE.BoxGeometry(.006, .08, .004), GM.white); kmk.position.set(3.2, .62, .162); G.add(kmk);
+  for (const s of [1, -1]) G.add(mesh(extrude(shapeFrom([[3.08, .55], [3.3, .55], [3.3, .65], [3.26, .69], [3.12, .69], [3.08, .65]]), .03, .005), anod).translateZ(s * .07));
+  const knob = mesh(latheAxis([[0, 0], [.07, 0], [.07, .08], [.06, .09], [0, .09]], 'z', 40), HM.knurled(0x3b3d40, [14, 1])); knob.position.set(3.2, .62, .07); G.add(knob);
+  const kmk = mesh(new THREE.BoxGeometry(.006, .014, .004), GM.white); kmk.position.set(3.2, .672, .161); G.add(kmk);
   const drum = mesh(latheAxis([[.11, -.1], [.11, .1]], 'z', 48), HM.knurled(0x3b3d40, [18, 1])); drum.position.set(3.19, .45, 0); G.add(drum);
   for (const s of [1, -1]) { const cap = mesh(new THREE.CircleGeometry(.105, 48), anod); cap.position.set(3.19, .45, s * .1); cap.rotation.y = s < 0 ? Math.PI : 0; G.add(cap); }
-  const drumMk = label([['8/3  4  5  6', .8, 600]], .16, .03, { color: '#e8e6dc' }); drumMk.position.set(3.19, .45, .101); G.add(drumMk);
-  const ap = new THREE.Mesh(extrude(shapeFrom([[3.17, .55], [3.21, .55], [3.21, .72], [3.17, .72]]), .1, .004), anod); G.add(ap);
-  const apHole = mesh(new THREE.CylinderGeometry(.012, .012, .05, 16), GM.dark); apHole.rotation.z = Math.PI / 2; apHole.position.set(3.19, .66, 0); G.add(apHole);
+    for (const [t, a] of [['8/3', 1.75], ['4', 2.2], ['5', 2.65], ['6', 3.1]]) {
+    const m = label([[t, .9, 700]], .05, .03, { color: '#d9d8d0', align: 'center' });
+    m.rotation.order = 'ZYX'; m.rotation.set(0, Math.PI / 2, a); m.position.set(3.19 + .1115 * Math.cos(a), .45 + .1115 * Math.sin(a), .06); G.add(m);
+  }
+  for (const s of [1, -1]) { const rim = mesh(new THREE.TorusGeometry(.098, .01, 8, 48), HM.knurled(0x3b3d40, [30, 1])); rim.position.set(3.19, .45, s * .101); G.add(rim); }
+  const ap = new THREE.Mesh(extrude(shapeFrom([[3.17, .55], [3.21, .55], [3.21, .67], [3.17, .67]]), .1, .004), anod); G.add(ap);
+  const apHole = mesh(new THREE.CylinderGeometry(.012, .012, .05, 16), GM.dark); apHole.rotation.z = Math.PI / 2; apHole.position.set(3.19, .62, 0); G.add(apHole);
   // ejection port with its dust cover, hinge rod and latch bump
   const coverMat = new THREE.MeshStandardMaterial({ color: 0x2e3032, metalness: .5, roughness: .5 });
   const recess = mesh(new THREE.BoxGeometry(.8, .17, .004), GM.dark); recess.position.set(4.2, .005, .1145); G.add(recess);
@@ -149,35 +162,35 @@ export function build() {
     const g = extrude(w, .16, .008); g.rotateX(Math.PI / 2); g.translate(0, .06, .114);
     G.add(mesh(g, anod)); }
   // forward assist: tube proud of the right side, tilted down toward the front, serrated plunger at the rear
-  { const FA = new THREE.Group(); FA.position.set(3.4, .1, .14); FA.rotation.z = -.17;
+  { const FA = new THREE.Group(); FA.position.set(3.4, .1, .095); FA.rotation.z = -.17;
     FA.add(mesh(latheAxis([[.085, 0], [.09, .02], [.09, .3], [.07, .35]], 'x', 40), anod));
-    FA.add(mesh(latheAxis([[.0, -.08], [.06, -.08], [.075, -.07], [.075, .01]], 'x', 40), GM.nitride));
+    FA.add(mesh(latheAxis([[.0, -.08], [.06, -.08], [.075, -.07], [.075, .01]], 'x', 40), phos));
     for (let k = 0; k < 8; k++) { const r = mesh(new THREE.BoxGeometry(.06, .008, .012), GM.dark); const a = k / 8 * Math.PI * 2; r.position.set(-.04, Math.sin(a) * .074, Math.cos(a) * .074); r.rotation.x = -a; FA.add(r); }
-    const web = mesh(new RoundedBoxGeometry(.3, .1, .06, 2, .02), anod); web.position.set(.17, -.04, -.04); FA.add(web);
+    const web = mesh(new RoundedBoxGeometry(.34, .14, .08, 3, .03), anod); web.position.set(.17, -.05, -.02); FA.add(web);
     G.add(FA); }
   // charging handle latch (left)
-  const chl = mesh(new RoundedBoxGeometry(.1, .05, .04, 2, .012), anod); chl.position.set(2.99, .2, -.15); G.add(chl);
+  const chl = mesh(new RoundedBoxGeometry(.06, .04, .04, 2, .012), anod); chl.position.set(2.72, .14, -.165); G.add(chl);
 
   /* barrel nut, delta ring with weld-spring, A2 ribbed handguards, cap */
   const hy = -.037;
-  G.add(mesh(latheAxis([[.0, 4.78], [.19, 4.78], [.19, 4.84]], 'x', 48), park));
-  G.add(mesh(latheAxis([[.19, 4.83], [.32, 4.83], [.33, 4.84], [.33, 4.99], [.32, 5.0], [.29, 5.02]], 'x', 64).translate(0, hy, 0), park));
+  const ringSteel = park.clone(); ringSteel.color.set(0x2f3133);
+  G.add(mesh(latheAxis([[.0, 4.78], [.19, 4.78], [.19, 4.92]], 'x', 48), park));
+  G.add(mesh(latheAxis([[.19, 4.83], [.3, 4.83], [.312, 4.842], [.312, 4.99], [.262, 5.04]], 'x', 64).translate(0, hy, 0), ringSteel));
   G.add(handguard(5.0, 7.86, .292, hy, poly));
   for (const s of [1, -1]) { const seam = mesh(new THREE.BoxGeometry(2.8, .006, .006), dark); seam.position.set(6.43, hy, s * .3); G.add(seam); }
-  G.add(mesh(latheAxis([[.29, 7.84], [.28, 7.9], [.24, 7.94], [.1, 7.95]], 'x', 64).translate(0, hy, 0), park));
+  G.add(mesh(latheAxis([[.29, 7.84], [.28, 7.9], [.24, 7.94], [.1, 7.95]], 'x', 64).translate(0, hy, 0), ringSteel));
 
   /* barrel: A2 profile is heavier forward of the front sight base */
   G.add(mesh(latheAxis([[.08, 4.8], [.08, 7.95], [.095, 7.98], [.095, 9.58]], 'x', 48), park));
-  G.add(mesh(latheAxis([[.025, 7.86], [.025, 8.0]], 'x', 12).translate(0, .21, 0), park));
+  G.add(mesh(latheAxis([[.025, 7.86], [.025, 7.98]], 'x', 12).translate(0, .21, 0), park));
 
   /* A2 front sight base: collar around the barrel, gas block, A-frame tower split into two ears, square post */
   G.add(mesh(latheAxis([[.12, 7.98], [.14, 8.0], [.14, 8.38], [.12, 8.4]], 'x', 48), park));
-  const gb = mesh(new RoundedBoxGeometry(.12, .16, .12, 2, .02), park); gb.position.set(8.02, .19, 0); G.add(gb);
-  const tri = P.fsb;
+  const tri = { outline: P.fsb.outline.map(([x, y]) => [Math.min(x, 8.4), y]), holes: P.fsb.holes };   // trim the sliver flush with the collar front
   for (const s of [1, -1]) { const ear = mesh(extrude(shapeFrom(tri.outline, tri.holes), .05, .008, { segs: 2 }), park); ear.position.z = s * .08; G.add(ear); }
-  const fbase = mesh(new RoundedBoxGeometry(.52, .08, .22, 2, .02), park); fbase.position.set(8.17, .12, 0); G.add(fbase);
+  const fbase = mesh(new RoundedBoxGeometry(.45, .08, .22, 2, .02), park); fbase.position.set(8.175, .12, 0); G.add(fbase);
   const post = mesh(new THREE.BoxGeometry(.019, .34, .03), park); post.position.set(8.19, .33, 0); G.add(post);
-  const det = mesh(new THREE.CylinderGeometry(.035, .035, .03, 16), park); det.position.set(8.19, .175, 0); G.add(det);
+  const det = mesh(new THREE.CylinderGeometry(.015, .015, .02, 12), park); det.position.set(8.215, .17, 0); G.add(det);
   const lug = mesh(new RoundedBoxGeometry(.16, .1, .07, 2, .015), park); lug.position.set(8.36, -.18, 0); G.add(lug);
   const fear = mesh(new RoundedBoxGeometry(.06, .06, .05, 2, .015), park); fear.position.set(8.05, -.15, 0); G.add(fear);
   const fsw = mesh(new THREE.TorusGeometry(.075, .006, 8, 32), GM.nitride); fsw.scale.set(2, 1, 1); fsw.position.set(8.05, -.25, 0); fsw.rotation.x = .25; G.add(fsw);
