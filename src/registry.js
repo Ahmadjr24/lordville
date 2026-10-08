@@ -356,4 +356,18 @@ export const ASSETS = [
       'Laser-etched model and serial markings',
     ],
   },
+  {
+    id: 'k12', code: 'WPN-010', name: 'K-12 Sport pistol', category: 'weapons', added: '2026-10-08',
+    pose: { rotY: 0, lift: .3 }, view: { az: .3, el: .12 },
+    summary: 'Full-size 9 mm competition pistol, traced from a side photograph at its 216 mm length.',
+    features: [
+      'Silhouette traced from a reference photo at true scale (216 mm long, 4.7" barrel)',
+      'Grey Cerakote steel frame with beavertail and squared trigger guard',
+      'Slide riding low in the frame rails, slanted front and rear serrations',
+      'Chrome barrel hood showing through the slide top, extractor, crowned muzzle',
+      'Adjustable rear sight with windage and elevation screws, steel front post',
+      'Extended safety, magazine release, skeleton hammer, black trigger',
+      'Aluminium grip panels with a machined pocket, checkered front and back straps, stepped base pad',
+    ],
+  },
 ];
