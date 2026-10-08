@@ -207,11 +207,15 @@ function route() {
 /* ------------------------------------------------------------------ boot */
 if (THUMB) {
   document.documentElement.classList.add('thumbmode');
-  const meta = ASSETS.find(a => a.id === THUMB);
+  // review renders can override the camera: ?thumb=id&az=..&el=..&zoom=..
+  const q = new URLSearchParams(location.search), base = ASSETS.find(a => a.id === THUMB);
+  const meta = q.has('az') ? { ...base, view: { az: +q.get('az'), el: +(q.get('el') ?? .2) } } : base;
+  if (q.has('zoom')) document.documentElement.style.setProperty('--zoom', q.get('zoom'));
   $('#library').hidden = true; $('#detail').hidden = false;
   initViewer(); resize();
   loadAsset(meta).then(res => {
     V.scene.add(res.obj); frame(meta, res.box);
+    if (q.has('zoom')) { const z = +q.get('zoom'); V.camera.position.lerp(V.controls.target, 1 - 1 / z); if (q.has('tx')) { const d = new THREE.Vector3(+q.get('tx'), +(q.get('ty') ?? 0), 0).applyMatrix4(res.obj.matrixWorld).sub(V.controls.target); V.camera.position.add(d); V.controls.target.add(d); } V.camera.lookAt(V.controls.target); }
     for (let k = 0; k < 3; k++) V.renderer.render(V.scene, V.camera);
     window.__thumb = $('#view').toDataURL('image/webp', .9);
   });
