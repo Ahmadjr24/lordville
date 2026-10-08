@@ -11,6 +11,10 @@ A browsable library of procedural 3D props. Every model is built in the browser 
 | MED-004 | Blood bag        |
 | WPN-001 | Arming sword     |
 | WPN-002 | Machete          |
+| MED-005 | Capsule pill     |
+| GER-001 | Night vision goggles |
+| GER-002 | Eyeglasses       |
+| CTB-001 | Bag of weed      |
 
 ## Layout
 

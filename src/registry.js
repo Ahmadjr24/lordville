@@ -8,6 +8,8 @@
 export const CATEGORIES = [
   { id: 'medical', name: 'Medical' },
   { id: 'weapons', name: 'Weapons' },
+  { id: 'gear', name: 'Gear' },
+  { id: 'contraband', name: 'Contraband' },
 ];
 
 export const ASSETS = [
@@ -82,6 +84,55 @@ export const ASSETS = [
       'Black protective coating with scuffs, bright hand-ground edge bevel',
       'Moulded polymer handle with stippled grip, guard flare and hooked butt',
       'Brass rivets, brass lanyard grommet and an orange paracord loop',
+    ],
+  },
+{
+    id: 'pill', code: 'MED-005', name: 'Capsule pill', category: 'medical', added: '2026-10-08',
+    pose: { rotY: .35 }, view: { az: .4, el: .35 },
+    summary: 'A single two-tone hard gelatin capsule, shown big.',
+    features: [
+      'Size 0 capsule: 21.7 mm long, 7.3 mm wide',
+      'Teal cap telescoped over a faintly translucent ivory body',
+      'Sealing band and rounded rims where the halves meet',
+      'Glossy gelatin finish with “LV 500” printed in edible ink',
+      'Powder fill visible through the body',
+    ],
+  },
+  {
+    id: 'night-vision', code: 'GER-001', name: 'Night vision goggles', category: 'gear', added: '2026-10-08',
+    pose: { rotY: -.55, lift: .3 }, view: { az: .45, el: .25 },
+    summary: 'Dual-tube night vision binocular with articulating monoculars, switched on.',
+    features: [
+      'Two monoculars on articulating arms around a centre bridge',
+      'Knurled objective and eyepiece focus rings with grip ribs',
+      'Curved front glass over iridescent coated lens elements',
+      'Rubber eyecups with green phosphor glow inside',
+      'Dovetail mount shoe, rotary switch, IR illuminator, rear battery cap',
+      'Printed model and serial markings',
+    ],
+  },
+  {
+    id: 'glasses', code: 'GER-002', name: 'Eyeglasses', category: 'gear', added: '2026-10-08',
+    pose: { rotY: .5 }, view: { az: .55, el: .22 },
+    summary: 'Tortoiseshell acetate glasses, size 52□20-145, temples open.',
+    features: [
+      'Polished tortoiseshell acetate front with a gentle face-wrap curve',
+      'Anti-reflective lenses with a curved front surface',
+      'Keyhole bridge and integrated nose pads',
+      'Five-barrel metal hinges and decorative pin rivets',
+      'Temples that bend down behind the ear, size printed inside',
+    ],
+  },
+  {
+    id: 'weed-bag', code: 'CTB-001', name: 'Bag of weed', category: 'contraband', added: '2026-10-08',
+    pose: { rotY: .25 }, view: { az: .3, el: .7 },
+    summary: 'Zip-seal baggie holding four cannabis buds and some shake.',
+    features: [
+      'Four buds built from lumpy colas, packed calyxes and sugar leaves',
+      'Curly orange pistils and frosty trichomes over every bud',
+      'Crinkled clear film with welded side seals',
+      'Red zip track and lip at the top',
+      'Write-on panel marked “3.5 g, OG Kush”',
     ],
   },
 ];
