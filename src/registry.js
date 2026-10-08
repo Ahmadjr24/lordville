@@ -384,4 +384,18 @@ export const ASSETS = [
       'Aluminium grip panels with a machined pocket, checkered front and back straps, stepped base pad',
     ],
   },
+  {
+    id: 'hellion', code: 'WPN-011', name: 'Hellion bullpup', category: 'weapons', added: '2026-10-09',
+    pose: { rotY: 0, lift: .3 }, view: { az: .35, el: .15 },
+    summary: 'Springfield Hellion-style 5.56 mm bullpup with a 1–8× optic, traced from a VHS-2 side photograph.',
+    features: [
+      'Silhouette traced from a side photograph at true scale (718 mm overall, 16" barrel)',
+      'Polymer chassis with adjustable buttstock and rubber butt pad',
+      'Top carry rail with integrated flip-up sights and a long side window',
+      'Forward charging handle, ambidextrous selector, ejection port with bolt',
+      'M-LOK slots and a lower accessory rail on the handguard',
+      'Black 30-round polymer magazine; slotted flash hider',
+      '1–8×24 low-power optic with turrets and throw lever on a cantilever mount',
+    ],
+  },
 ];

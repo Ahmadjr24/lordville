@@ -36,6 +36,7 @@ A browsable library of procedural 3D props. Every model is built in the browser 
 | WPN-008 | Suppressor |
 | WPN-009 | M16A2 rifle |
 | WPN-010 | K-12 Sport pistol |
+| WPN-011 | Hellion bullpup rifle | Weapons | Bullpup traced from a VHS-2 side photo: faceted stock with cheek riser and hooked pad, folded sights, port covers, M-LOK slots, pronged flash hider, PMAG, 1–8× LPVO on a cantilever mount |
 
 ## Layout
 
