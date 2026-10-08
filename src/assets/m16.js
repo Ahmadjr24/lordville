@@ -161,7 +161,7 @@ export function build() {
   const apRing = mesh(new THREE.TorusGeometry(.03, .008, 8, 24), anod); apRing.rotation.y = Math.PI / 2; apRing.position.set(3.168, .64, 0); G.add(apRing);
   const apHole = mesh(new THREE.CylinderGeometry(.012, .012, .05, 16), GM.dark); apHole.rotation.z = Math.PI / 2; apHole.position.set(3.19, .64, 0); G.add(apHole);
   // ejection port with its dust cover, hinge rod and latch bump
-  const coverMat = new THREE.MeshStandardMaterial({ color: 0x313336, metalness: .45, roughness: .55 });
+  const coverMat = new THREE.MeshStandardMaterial({ color: 0x36383b, metalness: .45, roughness: .55 });
   const recess = mesh(new THREE.BoxGeometry(.796, .166, .004), GM.dark); recess.position.set(4.2, .005, .1145); G.add(recess);
   const cover = mesh(new RoundedBoxGeometry(.78, .15, .006, 2, .002), coverMat); cover.position.set(4.2, .005, .1165); G.add(cover);
   const crib = mesh(new RoundedBoxGeometry(.7, .03, .008, 2, .003), coverMat); crib.position.set(4.22, .04, .121); G.add(crib);
