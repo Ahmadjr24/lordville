@@ -9,6 +9,7 @@ export const CATEGORIES = [
   { id: 'medical', name: 'Medical' },
   { id: 'weapons', name: 'Weapons' },
   { id: 'gear', name: 'Gear' },
+  { id: 'tools', name: 'Tools' },
   { id: 'contraband', name: 'Contraband' },
 ];
 
@@ -133,6 +134,135 @@ export const ASSETS = [
       'Crinkled clear film with welded side seals',
       'Red zip track and lip at the top',
       'Write-on panel marked “3.5 g, OG Kush”',
+    ],
+  },
+  {
+    id: 'hammer', code: 'TOL-001', name: 'Claw hammer', category: 'tools', added: '2026-10-08',
+    pose: { rotY: 0.4 }, view: { az: 0.4, el: 0.75 },
+    summary: '16 oz claw hammer with a fibreglass shaft and rubber grip.',
+    features: [
+      'Forged head with a polished, slightly domed striking face',
+      'Split nail claw with a V-slot between the prongs',
+      'Fibreglass shaft with rubber over-moulded grip, yellow inlay and flared butt',
+      '“16 OZ / 450 g” stamped on the cheek',
+    ],
+  },
+  {
+    id: 'flashlight', code: 'TOL-002', name: 'Flashlight', category: 'tools', added: '2026-10-08',
+    pose: { rotY: 0.5 }, view: { az: 0.45, el: 0.45 },
+    summary: 'Tactical LED flashlight in black anodised aluminium.',
+    features: [
+      'Knurled body tube and ribbed tail cap with a rubber switch boot',
+      'Finned head, smooth reflector, LED emitter and glass lens',
+      'Crenellated strike bezel',
+      'Spring-steel pocket clip',
+      '“800 lm · IPX8” printed on the head',
+    ],
+  },
+  {
+    id: 'screwdriver', code: 'TOL-003', name: 'Screwdriver', category: 'tools', added: '2026-10-08',
+    pose: { rotY: 0.4 }, view: { az: 0.4, el: 0.5 },
+    summary: 'PH2 × 125 mm Phillips screwdriver with a two-component handle.',
+    features: [
+      'Six-flute handle: hard red plastic with a soft black grip zone',
+      'Hang hole through the end cap',
+      'Hex bolster and chrome-vanadium shaft',
+      'Black-oxide Phillips tip with four flutes',
+    ],
+  },
+  {
+    id: 'adjustable-wrench', code: 'TOL-004', name: 'Adjustable wrench', category: 'tools', added: '2026-10-08',
+    pose: { rotY: 0.3 }, view: { az: 0.35, el: 0.7 },
+    summary: '250 mm (10") chrome adjustable wrench.',
+    features: [
+      'Drop-forged chrome-vanadium body with hang hole',
+      'Fixed jaw, sliding jaw and threaded worm in its window',
+      'Size and jaw-scale markings',
+    ],
+  },
+  {
+    id: 'pliers', code: 'TOL-005', name: 'Combination pliers', category: 'tools', added: '2026-10-08',
+    pose: { rotY: 0.3 }, view: { az: 0.35, el: 0.7 },
+    summary: '200 mm combination pliers with dipped insulated grips.',
+    features: [
+      'Two forged halves crossing at a domed pivot rivet',
+      'Serrated gripping jaws',
+      'Dipped two-colour grips with flared ends',
+      '“200 mm · 1000 V” marking',
+    ],
+  },
+  {
+    id: 'utility-knife', code: 'TOL-006', name: 'Utility knife', category: 'tools', added: '2026-10-08',
+    pose: { rotY: 0.4 }, view: { az: 0.4, el: 0.7 },
+    summary: '18 mm snap-off utility knife.',
+    features: [
+      'Yellow body with black rubber over-mould',
+      'Chrome nose and segmented snap-off blade with score lines',
+      'Ribbed slider, body screws and print',
+    ],
+  },
+  {
+    id: 'tape-measure', code: 'TOL-007', name: 'Tape measure', category: 'tools', added: '2026-10-08',
+    pose: { rotY: -0.5 }, view: { az: 0.5, el: 0.3 },
+    summary: '7.5 m / 25 ft tape measure with the blade pulled out.',
+    features: [
+      'Yellow case with a rubber bumper and side badge',
+      'Lock button and chrome belt clip',
+      'Cupped steel blade printed with mm/cm and inch scales',
+      'Riveted end hook',
+    ],
+  },
+  {
+    id: 'hand-saw', code: 'TOL-008', name: 'Hand saw', category: 'tools', added: '2026-10-08',
+    pose: { rotY: 0.3 }, view: { az: 0.3, el: 0.75 },
+    summary: '550 mm (22") panel saw with a beech handle.',
+    features: [
+      'Tapered spring-steel blade with 7 TPI teeth, alternately set',
+      'Etched maker’s mark and specs',
+      'Closed beech handle with a hand hole',
+      'Brass split-nut screws',
+    ],
+  },
+  {
+    id: 'spirit-level', code: 'TOL-009', name: 'Spirit level', category: 'tools', added: '2026-10-08',
+    pose: { rotY: 0.35 }, view: { az: 0.35, el: 0.3 },
+    summary: '600 mm spirit level with level and plumb vials.',
+    features: [
+      'Painted aluminium box section with milled reading edges',
+      'Rubber end caps and hang hole',
+      'Level and plumb vials with green fluid, bubbles and gauge rings',
+      'Millimetre scale and maker’s label',
+    ],
+  },
+  {
+    id: 'crowbar', code: 'TOL-010', name: 'Crowbar', category: 'tools', added: '2026-10-08',
+    pose: { rotY: 0.3 }, view: { az: 0.35, el: 0.75 },
+    summary: '600 mm hexagonal wrecking bar.',
+    features: [
+      'Hex forged steel with a gooseneck nail claw',
+      'Angled chisel end',
+      'Red paint worn back to bare steel at both working ends',
+    ],
+  },
+  {
+    id: 'ratchet', code: 'TOL-011', name: 'Ratchet and socket', category: 'tools', added: '2026-10-08',
+    pose: { rotY: -0.5 }, view: { az: 0.45, el: 0.35 },
+    summary: '3/8" drive ratchet with a 13 mm socket.',
+    features: [
+      'Polished chrome handle with a rubber grip',
+      'Round 72-tooth head with reversing lever and quick-release button',
+      'Knurled 13 mm socket with size stamp',
+    ],
+  },
+  {
+    id: 'cordless-drill', code: 'TOL-012', name: 'Cordless drill', category: 'tools', added: '2026-10-08',
+    pose: { rotY: -0.45 }, view: { az: 0.5, el: 0.22 },
+    summary: '18 V cordless drill/driver standing on its battery.',
+    features: [
+      'Teal and black housing with rear vents and 2-speed selector',
+      'Numbered clutch collar, keyless chuck and bit',
+      'Rubber-gripped handle, trigger and direction switch',
+      'Work light and battery pack with a charge gauge',
     ],
   },
 ];

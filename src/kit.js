@@ -682,5 +682,91 @@ function stippleCanvas() {
   return c;
 }
 
+/* ------------------------------------------------------------------ hard goods (tools) */
+// Lathe a profile of [radius, height] pairs around y, then point it along 'x', 'y' or 'z'.
+function latheAxis(prof, axis = 'y', seg = 64) {
+  const g = new THREE.LatheGeometry(prof.map(([r, h]) => new THREE.Vector2(Math.max(1e-4, r), h)), seg);
+  if (axis === 'x') g.rotateZ(-Math.PI / 2);
+  if (axis === 'z') g.rotateX(Math.PI / 2);
+  return g;
+}
+const v2 = pts => pts.map(([x, y]) => new THREE.Vector2(x, y));
+function shapeFrom(pts, holes = []) {
+  const s = new THREE.Shape(v2(pts));
+  for (const h of holes) s.holes.push(new THREE.Path(v2(h)));
+  return s;
+}
+function circlePts(cx, cy, r, n = 32, cw = true) {
+  const out = [];
+  for (let k = 0; k < n; k++) { const a = (cw ? -1 : 1) * k / n * Math.PI * 2; out.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]); }
+  return out;
+}
+function rrPts(x, y, w, h, r, n = 6) {
+  const out = [], c = [[x + w - r, y + r, -Math.PI / 2], [x + w - r, y + h - r, 0], [x + r, y + h - r, Math.PI / 2], [x + r, y + r, Math.PI]];
+  for (const [cx, cy, a0] of c) for (let k = 0; k <= n; k++) { const a = a0 + k / n * Math.PI / 2; out.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]); }
+  return out;
+}
+// Extrude along z, centred on z = 0.
+function extrude(shape, depth, bevel = .006, o = {}) {
+  const g = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: bevel > 0, bevelThickness: bevel, bevelSize: o.bevelSize ?? bevel, bevelSegments: o.segs ?? 3, curveSegments: o.curve ?? 24, steps: 1 });
+  g.translate(0, 0, -depth / 2);
+  return g;
+}
+function knurlCanvas(step = 8) {
+  const s = 128, c = mkCanvas(s), g = c.getContext('2d');
+  g.fillStyle = '#808080'; g.fillRect(0, 0, s, s);
+  for (let k = -s; k < 2 * s; k += step) {
+    g.lineWidth = 3; g.strokeStyle = 'rgba(0,0,0,.6)';
+    g.beginPath(); g.moveTo(k, 0); g.lineTo(k + s, s); g.stroke();
+    g.beginPath(); g.moveTo(k, s); g.lineTo(k + s, 0); g.stroke();
+  }
+  return c;
+}
+function woodCanvas(base = [150, 98, 56]) {
+  const W = 256, H = 1024, c = mkCanvas(W, H), g = c.getContext('2d'), img = g.createImageData(W, H);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const n = fbm(x * .02, y * .004, 1.3), ring = Math.sin((x * .09 + n * 9) * 1.0);
+    const k = .82 + .07 * ring + .08 * (fbm(x * .3, y * .01, 7) - .5);
+    const i = (y * W + x) * 4;
+    img.data[i] = base[0] * k; img.data[i + 1] = base[1] * k; img.data[i + 2] = base[2] * k; img.data[i + 3] = 255;
+  }
+  g.putImageData(img, 0, 0);
+  return c;
+}
+// Flat printed label (transparent background) as a plane in the x-y plane.
+function label(lines, w, h, o = {}) {
+  const W = 1024, H = Math.max(32, Math.round(W * h / w)), c = mkCanvas(W, H), g = c.getContext('2d');
+  if (o.bg) { g.fillStyle = o.bg; g.fillRect(0, 0, W, H); }
+  g.fillStyle = o.color ?? '#111'; g.textBaseline = 'middle'; g.textAlign = o.align ?? 'left';
+  const lh = H / lines.length;
+  lines.forEach((ln, i) => {
+    const [txt, size = .7, weight = 700] = [].concat(ln);
+    g.font = `${weight} ${lh * size}px ${o.font ?? '"IBM Plex Sans", Arial, sans-serif'}`;
+    g.fillText(txt, o.align === 'center' ? W / 2 : 12, lh * (i + .55));
+  });
+  if (o.draw) o.draw(g, W, H);
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({
+    map: tex(c, { clampEdge: true }), transparent: !o.bg, depthWrite: !!o.bg, roughness: o.rough ?? .5, metalness: o.metal ?? 0,
+    polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4
+  }));
+  return m;
+}
+const HM = {
+  chrome: new THREE.MeshStandardMaterial({ color: 0xe1e5ea, metalness: 1, roughness: .1 }),
+  satin: new THREE.MeshStandardMaterial({ color: 0xc9ced4, metalness: 1, roughness: .32,
+    roughnessMap: tex(brushedCanvas({ w: 128, h: 512, edges: [], base: 150 }), { repeat: [2, 2], color: false }) }),
+  blackOxide: new THREE.MeshStandardMaterial({ color: 0x2a2b2e, metalness: .85, roughness: .42 }),
+  forged: new THREE.MeshStandardMaterial({ color: 0x3b3d40, metalness: .85, roughness: .5, bumpMap: tex(stippleCanvas(), { repeat: [4, 4], color: false }), bumpScale: .8 }),
+  alu: new THREE.MeshStandardMaterial({ color: 0xbcc1c7, metalness: 1, roughness: .34 }),
+  brass: new THREE.MeshStandardMaterial({ color: 0xcaa35a, metalness: 1, roughness: .28 }),
+  rubber: new THREE.MeshStandardMaterial({ color: 0x1b1b1c, roughness: .9, bumpMap: tex(stippleCanvas(), { repeat: [3, 3], color: false }), bumpScale: 1.5 }),
+  glass: new THREE.MeshPhysicalMaterial({ color: 0xf2f7f8, roughness: .02, transparent: true, opacity: .18, depthWrite: false, clearcoat: 1, side: THREE.DoubleSide }),
+};
+HM.plastic = (color, rough = .42) => new THREE.MeshPhysicalMaterial({ color, roughness: rough, clearcoat: .25, clearcoatRoughness: .4 });
+HM.paint = (color) => new THREE.MeshPhysicalMaterial({ color, roughness: .38, metalness: .2, clearcoat: .6, clearcoatRoughness: .25 });
+HM.knurled = (color = 0x1c1d1f, rep = [20, 3]) => new THREE.MeshStandardMaterial({ color, metalness: .75, roughness: .36, bumpMap: tex(knurlCanvas(), { repeat: rep, color: false }), bumpScale: 2.5 });
+HM.wood = (base, rep = [1, 1]) => { const w = woodCanvas(base); return new THREE.MeshPhysicalMaterial({ map: tex(w, { repeat: rep }), roughness: .55, clearcoat: .5, clearcoatRoughness: .3, bumpMap: tex(w, { repeat: rep, color: false }), bumpScale: .5 }); };
+
 export { bladeGeo, brushedCanvas, leatherCanvas, stippleCanvas };
+export { latheAxis, shapeFrom, circlePts, rrPts, extrude, knurlCanvas, woodCanvas, label, HM };
 export { THREE, RoundedBoxGeometry, V, clamp, smooth, hash3, noise3, fbm, basisMatrix, place, mesh, mkCanvas, tex, addNoise, lighten, weaveCanvas, webbingCanvas, airmeshCanvas, braidCanvas, gauzeMaskCanvas, crepeCanvas, fineWeaveCanvas, prismCanvas, paperCanvas, decal, hatch, rrPath, crossPath, decalMat, fabric, webbing, M, SoftBox, smoothNormals, rrPieces, rrLen, rrAt, rrSample, rrS, finishFrames, surfFrames, freeFrames, sampleFrames, curve, profile, sweepGeo, Stitches, lerpPts, boxX, conformPlane, makePull, makeZipper, makeBuckle, makeLadder };

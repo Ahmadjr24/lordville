@@ -15,6 +15,18 @@ A browsable library of procedural 3D props. Every model is built in the browser 
 | GER-001 | Night vision goggles |
 | GER-002 | Eyeglasses       |
 | CTB-001 | Bag of weed      |
+| TOL-001 | Claw hammer |
+| TOL-002 | Flashlight |
+| TOL-003 | Screwdriver |
+| TOL-004 | Adjustable wrench |
+| TOL-005 | Combination pliers |
+| TOL-006 | Utility knife |
+| TOL-007 | Tape measure |
+| TOL-008 | Hand saw |
+| TOL-009 | Spirit level |
+| TOL-010 | Crowbar |
+| TOL-011 | Ratchet and socket |
+| TOL-012 | Cordless drill |
 
 ## Layout
 
