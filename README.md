@@ -66,3 +66,7 @@ adds the document skeleton. Browsers render it fine as-is; serve the folder over
 1. Create `src/assets/<id>.js` exporting `build()`. Use the kit (1 scene unit = 10 cm).
 2. Add an entry to `ASSETS` in `src/registry.js` (code, name, category, summary, features, pose, view).
 3. Render its thumbnail: `npm i -D playwright && node tools/thumbs.mjs <id>`.
+
+## Single-file version
+
+`dist/lordville-library.html` is the whole library in one HTML file (three.js, every model and the thumbnails inlined), so it opens straight from disk with no server. Rebuild it with `node tools/standalone.mjs` (needs `esbuild` and `three@0.160.0`; point `NODE_TOOLS` at a folder whose `node_modules` has them).
