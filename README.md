@@ -39,6 +39,10 @@ A browsable library of procedural 3D props. Every model is built in the browser 
 | WPN-011 | Hellion bullpup rifle |
 | WPN-012 | 686 stainless revolver |
 | WPN-013 | AR-15 pistol |
+| FD-001 | Seeded breakfast roll |
+| FD-002 | Oat cookie pack |
+| FD-003 | Bakery lunch sandwich |
+| FD-004 | Garden soup flask |
 
 ## Layout
 

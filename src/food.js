@@ -59,13 +59,13 @@ export function tint(im, hexes, jitter = .08, seed = 3) {
 }
 
 // Mottled crust / bake colour map + bump (blisters, flour, tiny cracks)
-export function crustCanvas({ base = '#b8743a', spots = ['#8a4a1e', '#d79b5a', '#6b3412'], flour = 0, size = 512, n = 2600 } = {}) {
+export function crustCanvas({ base = '#b8743a', spots = ['#8a4a1e', '#d79b5a', '#6b3412'], flour = 0, size = 512, n = 2600, rmax = 9, alpha = .22 } = {}) {
   const c = mkCanvas(size), g = c.getContext('2d');
   g.fillStyle = base; g.fillRect(0, 0, size, size);
   let s = 7; const r = () => (s = (s * 16807) % 2147483647) / 2147483647;
   for (let k = 0; k < n; k++) {
-    g.globalAlpha = .08 + r() * .22; g.fillStyle = spots[Math.floor(r() * spots.length)];
-    const x = r() * size, y = r() * size, rr = 1 + r() * 9;
+    g.globalAlpha = .08 + r() * alpha; g.fillStyle = spots[Math.floor(r() * spots.length)];
+    const x = r() * size, y = r() * size, rr = 1 + r() * rmax;
     g.beginPath(); g.ellipse(x, y, rr, rr * (.4 + r() * .6), r() * Math.PI, 0, Math.PI * 2); g.fill();
   }
   if (flour) { g.fillStyle = '#f4ead8'; for (let k = 0; k < flour; k++) { g.globalAlpha = .05 + r() * .25; g.beginPath(); g.arc(r() * size, r() * size, .5 + r() * 2.5, 0, Math.PI * 2); g.fill(); } }
@@ -88,14 +88,14 @@ export function bumpCanvas({ size = 512, n = 1800, crack = 60 } = {}) {
   return c;
 }
 // open bread crumb (alveoli) for cut faces
-export function crumbCanvas({ base = '#efe0c4', hole = '#b89a6e', size = 512, n = 900, seeds = 0 } = {}) {
+export function crumbCanvas({ base = '#efe0c4', hole = '#b89a6e', size = 512, n = 900, seeds = 0, stretch = 1 } = {}) {
   const c = mkCanvas(size), g = c.getContext('2d');
   g.fillStyle = base; g.fillRect(0, 0, size, size);
   let s = 5; const r = () => (s = (s * 16807) % 2147483647) / 2147483647;
   for (let k = 0; k < n; k++) {
     const x = r() * size, y = r() * size, rr = 1 + Math.pow(r(), 3) * 14;
     g.fillStyle = hole; g.globalAlpha = .35 + r() * .4;
-    g.beginPath(); g.ellipse(x, y, rr * (1 + r()), rr, r() * Math.PI, 0, Math.PI * 2); g.fill();
+    g.beginPath(); stretch === 1 ? g.ellipse(x, y, rr * (1 + r()), rr, r() * Math.PI, 0, Math.PI * 2) : g.ellipse(x, y, rr * (.6 + r() * .4), rr * stretch, (r() - .5) * .4, 0, Math.PI * 2); g.fill();
     g.fillStyle = '#fff8ea'; g.globalAlpha = .3; g.beginPath(); g.ellipse(x - rr * .3, y - rr * .3, rr * .5, rr * .35, 0, 0, Math.PI * 2); g.fill();
   }
   const sc = ['#3a2614', '#e9d9b0', '#5c4a2a'];

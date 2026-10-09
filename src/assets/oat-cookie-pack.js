@@ -9,16 +9,32 @@ import { blob, scatter, tint, fbm, smooth } from '../food.js';
 const PR = .35, PL = 2.0;   // pack radius and length
 
 /* ---------------- cookie */
+// 3–6 short fissures per cookie as segments (model units); used by the geometry and the texture
+function fissures(seed) {
+  let s = seed * 7919 + 17; const r = () => (s = (s * 16807) % 2147483647) / 2147483647;
+  const n = 3 + Math.floor(r() * 4), out = [];
+  for (let k = 0; k < n; k++) { const q = Math.sqrt(r()) * .2, a = r() * Math.PI * 2, x = Math.cos(a) * q, z = Math.sin(a) * q, b = r() * Math.PI, l = .1 + r() * .15; out.push([x - Math.cos(b) * l / 2, z - Math.sin(b) * l / 2, x + Math.cos(b) * l / 2, z + Math.sin(b) * l / 2]); }
+  return out;
+}
+function fissure(x, z, seed) {
+  let f = 0;
+  for (const [ax, az, bx, bz] of fissures(seed)) {
+    const dx = bx - ax, dz = bz - az, t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz)));
+    const d = Math.hypot(x - ax - t * dx, z - az - t * dz), w = .008 * Math.sin(Math.PI * t) + .001;
+    f = Math.max(f, Math.exp(-((d / w) ** 2)));
+  }
+  return f;
+}
 function cookieShape(seed, R = .31, T = .088) {
   // rounded disc: latitudes below te form the rolled edge, above it the (domed) faces
   const rr = T / 2, te = .6;
   return d => {
     const k = Math.hypot(d.x, d.z), a = Math.atan2(d.z, d.x), th = Math.asin(Math.min(1, Math.abs(d.y))), sg = Math.sign(d.y) || 1;
-    const wob = 1 + .03 * (fbm(Math.cos(a) * 1.6 + seed, Math.sin(a) * 1.6, seed) - .5) * 2, Rw = R * wob;
+    const wob = 1 + .05 * (fbm(Math.cos(a) * 1.6 + seed, Math.sin(a) * 1.6, seed) - .5) * 2 + .012 * (fbm(Math.cos(a) * 6, Math.sin(a) * 6, seed) - .5), Rw = R * wob;
     let rad, y;
     if (th < te) { const ph = th / te * Math.PI / 2; rad = Rw - rr + rr * Math.cos(ph); y = sg * rr * Math.sin(ph); }
     else { const t = (Math.PI / 2 - th) / (Math.PI / 2 - te); rad = (Rw - rr) * t; y = sg * rr; }
-    if (d.y > 0) y += .012 * (1 - (rad / R) ** 2) + .006 * (fbm(d.x * 8 + seed, 1, d.z * 8) - .5);   // low dome, craggy top
+    if (d.y > 0) y += .012 * (1 - (rad / R) ** 2) + .012 * (fbm(d.x * 14 + seed, 1, d.z * 14) - .5) * smooth(.3, .7, Math.abs(d.y)) - fissure(Math.cos(a) * rad, Math.sin(a) * rad, seed) * .01;   // low dome, lumpy crumbs, fissures
     if (k < 1e-9) rad = 0;
     return V(Math.cos(a) * rad, y, Math.sin(a) * rad);
   };
@@ -27,19 +43,20 @@ function cookieCanvas(seed, bump) {
   const S = 512, c = mkCanvas(S), g = c.getContext('2d');
   let s = seed * 997 + 13; const r = () => (s = (s * 16807) % 2147483647) / 2147483647;
   g.fillStyle = bump ? '#808080' : '#c99a5e'; g.fillRect(0, 0, S, S);
+  const P = v => (v * 1.5 + .5) * S;   // model x/z -> canvas, matching the planar UVs
   // mottled bake and oat bits
   for (let k = 0; k < 2200; k++) {
-    const pal = bump ? ['#9a9a9a', '#5a5a5a', '#b4b4b4'] : ['#b9874d', '#d6ab70', '#a8733c', '#e3cc9c'];
-    g.globalAlpha = .15 + r() * .35; g.fillStyle = pal[Math.floor(r() * pal.length)];
-    g.beginPath(); g.ellipse(r() * S, r() * S, 1 + r() * 7, 1 + r() * 4, r() * Math.PI, 0, Math.PI * 2); g.fill();
+    const pal = bump ? ['#9a9a9a', '#5a5a5a', '#b4b4b4'] : ['#b8894e', '#d6a96c', '#a8733c', '#dcbc85'];
+    g.globalAlpha = .12 + r() * .25; g.fillStyle = pal[Math.floor(r() * pal.length)];
+    g.beginPath(); g.ellipse(r() * S, r() * S, 4 + r() * 12, 3 + r() * 8, r() * Math.PI, 0, Math.PI * 2); g.fill();
   }
-  // hairline cracks radiating loosely from the dome
-  g.globalAlpha = 1; g.strokeStyle = bump ? '#202020' : '#8a5a2b';
-  for (let k = 0; k < 10; k++) {
-    let x = S / 2 + (r() - .5) * S * .5, y = S / 2 + (r() - .5) * S * .5, a = r() * Math.PI * 2;
-    g.lineWidth = 1 + r() * 2.4; g.beginPath(); g.moveTo(x, y);
-    for (let j = 0; j < 7; j++) { a += (r() - .5) * 1.2; x += Math.cos(a) * 18; y += Math.sin(a) * 18; g.lineTo(x, y); }
-    g.stroke();
+  // fissures: dark floor, lighter raised edges
+  g.globalAlpha = 1; g.lineCap = 'round';
+  for (const [ax, az, bx, bz] of fissures(seed)) {
+    // jagged path through the segment, so the fissure reads as a tear in the dough
+    const pts = []; for (let k = 0; k <= 8; k++) { const t = k / 8, j = k % 8 ? (r() - .5) * 10 : 0; pts.push([P(ax + (bx - ax) * t) + j, P(az + (bz - az) * t) - j * .6]); }
+    const draw = (col, w) => { g.strokeStyle = col; g.lineWidth = w; g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke(); };
+    draw(bump ? '#a8a8a8' : '#d4ac74', 9); draw(bump ? '#202020' : '#8a5a2b', 3.5);
   }
   if (!bump) { g.fillStyle = '#fff6e4'; for (let k = 0; k < 500; k++) { g.globalAlpha = .3 + r() * .5; g.fillRect(r() * S, r() * S, 1.5, 1.5); } }   // sugar sparkle
   g.globalAlpha = 1;
@@ -47,14 +64,16 @@ function cookieCanvas(seed, bump) {
 }
 function cookie(seed, flakes = true) {
   const C = new THREE.Group(), shape = cookieShape(seed);
-  const body = new THREE.Color(0xffffff), edge = new THREE.Color(0xc79a6a), under = new THREE.Color(0xb88a58);
+  const body = new THREE.Color(0xffffff), edge = new THREE.Color(0xc8a07a), under = new THREE.Color(0xb88a5e);
   const geo = blob(shape, (d, p, c) => { const rr = Math.hypot(p.x, p.z) / .31; c.copy(body).lerp(edge, smooth(.8, 1.02, rr)); if (d.y < -.2) c.lerp(under, .7); }, { w: 96, h: 64 });
   { const uv = geo.attributes.uv, p = geo.attributes.position; for (let i = 0; i < uv.count; i++) uv.setXY(i, p.getX(i) * 1.5 + .5, p.getZ(i) * 1.5 + .5); }
   const mat = new THREE.MeshStandardMaterial({ vertexColors: true, map: tex(cookieCanvas(seed, false)), bumpMap: tex(cookieCanvas(seed, true), { color: false }), bumpScale: 2.2, roughness: .85 });
   C.add(mesh(geo, mat));
   if (flakes) {
     const fl = new THREE.CylinderGeometry(.03, .032, .005, 10); fl.scale(1, 1, .7);
-    C.add(tint(scatter(shape, fl, new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: .85 }), 18, rnd => { const y = .5 + rnd() * .5, a = rnd() * Math.PI * 2, q = Math.sqrt(1 - y * y); return V(Math.cos(a) * q, y, Math.sin(a) * q); }, { lift: -.001, scale: [.6, .95], tilt: .35, seed }), [0xd9bd88, 0xcfae74, 0xe3cc9c]));
+    const half = new THREE.CylinderGeometry(.03, .032, .005, 10, 1, false, 0, Math.PI); half.scale(1, 1, .7);
+    C.add(tint(scatter(shape, fl, new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: .85 }), 20, rnd => { const y = .5 + rnd() * .5, a = rnd() * Math.PI * 2, q = Math.sqrt(1 - y * y); return V(Math.cos(a) * q, y, Math.sin(a) * q); }, { lift: -.002, scale: [.65, 1.3], tilt: .7, seed }), [0xd9bc86, 0xd2b07a, 0xdcc290]));
+    C.add(tint(scatter(shape, half, new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: .85 }), 6, rnd => { const y = .5 + rnd() * .5, a = rnd() * Math.PI * 2, q = Math.sqrt(1 - y * y); return V(Math.cos(a) * q, y, Math.sin(a) * q); }, { lift: -.002, scale: [.7, 1.1], tilt: .7, seed: seed + 50 }), [0xd9bc86, 0xd2b07a]));
   }
   return C;
 }
@@ -116,7 +135,7 @@ export function build() {
     const f = smooth(-PL / 2 + .02, x0 + .02, x);                 // 0 on the tube, 1 at the crimp
     for (let i = 0; i <= nu; i++) {
       const u = i / nu, a = u * Math.PI * 2 - Math.PI / 2;           // u = .5 faces +z
-      const wr = 1 + .025 * f * (fbm(u * 18, x * 9, 1) - .5) * 2 + .006 * (fbm(u * 30, x * 30, 3) - .5);
+      const wr = 1 + .025 * f * (fbm(u * 18, x * 9, 1) - .5) * 2 + .006 * (fbm(u * 30, x * 30, 3) - .5) - .012 * (1 - f) * (.5 + .5 * Math.cos((x + PL / 2 - .07) / .088 * Math.PI * 2)) + .006 * smooth(PL / 2 - .25, PL / 2, Math.abs(x)) * (fbm(u * 8 + x * 8, x * 3, 5) - .5) * 2;
       const tear = x > PL / 2 - .06 ? smooth(PL / 2 - .06, x1, x) : 0;
       let px = x, py = Math.sin(a) * PR * wr * (1 - f * .97), pz = Math.cos(a) * PR * wr * (1 + f * .5);
       if (tear) { px -= tear * .06 * (fbm(u * 14, 2, 7) + .3 * Math.sin(u * 60)); py *= 1 + tear * .05; pz *= 1 + tear * .05; }   // ragged, slightly flared torn edge

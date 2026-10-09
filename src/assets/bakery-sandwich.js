@@ -7,7 +7,7 @@
 import { THREE, V, mesh, mkCanvas, tex } from '../kit.js';
 import { crustCanvas, bumpCanvas, crumbCanvas, fbm, smooth } from '../food.js';
 
-const L = 2.8, W = .31, Hh = .24, N = 2.6, BF = .82;   // length, half-width, half-height, superellipse power, flattened bottom
+const L = 2.8, W = .31, Hh = .24, N = 2.1, BF = .92;   // length, half-width, half-height, superellipse power, flattened bottom
 const yc = .15;                                       // height of the cut above the table
 const se = (v, p) => Math.sign(v) * Math.pow(Math.abs(v), p);
 const wid = x => W * Math.pow(Math.max(0, 1 - Math.pow(Math.abs(x) / (L / 2), 4)), .38) * (1 + .05 * (fbm(x * 1.3, 1, 2) - .5));
@@ -31,7 +31,7 @@ function score(x, z) {
   let g = 0, e = 0;
   for (const xk of SC) {
     const al = (x - xk) * CA + z * SA, ac = -(x - xk) * SA + z * CA, env = Math.max(0, 1 - (al / .42) ** 2);
-    g = Math.max(g, Math.exp(-((ac / .035) ** 2)) * env); e = Math.max(e, Math.exp(-(((ac - .055) / .025) ** 2)) * env);
+    g = Math.max(g, Math.exp(-((ac / .04) ** 2)) * env); e = Math.max(e, Math.exp(-(((ac - .06) / .025) ** 2)) * env);
   }
   return [g, e];
 }
@@ -50,9 +50,9 @@ export function build() {
   const crust = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .78, side: THREE.DoubleSide,
     map: tex(crustCanvas({ base: '#ffffff', spots: ['#e2cdb8', '#f6eee4', '#c8ad94'], n: 2600 }), { repeat: [3, 2] }),
     bumpMap: tex(bumpCanvas({ crack: 120 }), { repeat: [2, 2], color: false }), bumpScale: 1.6 });
-  const crumb = new THREE.MeshStandardMaterial({ map: tex(crumbCanvas({ base: '#eedfc0', hole: '#b9996a', n: 1600 }), { repeat: [1.5, 1.5] }),
-    bumpMap: tex(crumbCanvas({ base: '#9a9a9a', hole: '#3a3a3a', n: 1600 }), { repeat: [1.5, 1.5], color: false }), bumpScale: 2.5, roughness: .92, side: THREE.DoubleSide });
-  const cMain = new THREE.Color(0x8d5a33), cLight = new THREE.Color(0xb98450), cDark = new THREE.Color(0x5e3418), cFlour = new THREE.Color(0xe9e3d6), cScore = new THREE.Color(0xd9b27a);
+  const crumb = new THREE.MeshStandardMaterial({ map: tex(crumbCanvas({ base: '#eedfc0', hole: '#d9c49a', n: 700 }), { repeat: [1.5, 1.5] }),
+    bumpMap: tex(crumbCanvas({ base: '#9a9a9a', hole: '#3a3a3a', n: 700 }), { repeat: [1.5, 1.5], color: false }), bumpScale: 1, roughness: .92, side: THREE.DoubleSide });
+  const cMain = new THREE.Color(0xa8693a), cLight = new THREE.Color(0xd4a062), cDark = new THREE.Color(0x7e4a22), cFlour = new THREE.Color(0xece6da), cScore = new THREE.Color(0xd4a062);
   const xs = t => -L / 2 + L * t;
 
   /* bottom half: crust below the cut, flat crumb on top */
@@ -64,20 +64,23 @@ export function build() {
   G.add(mesh(bottom, crust));
   const cutFace = (y) => loft(160, 8, (t, u, c) => { const x = xs(t), z = zc(x); c.set(0xffffff); return V(x, y, zoff(x) + (-z + 2 * z * u) * .985); });
   G.add(mesh(cutFace(yc), crumb));
+  const rimMat = new THREE.MeshStandardMaterial({ color: 0xa8693a, roughness: .8 });
+  const rim = (y, grp) => { for (const sgn of [1, -1]) { const pts = []; for (let k = 0; k <= 120; k++) { const x = -L / 2 * .97 + L * .97 * k / 120; pts.push(V(x, y, zoff(x) + sgn * zc(x) * .985)); } grp.add(mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 160, .014, 6), rimMat)); } };
+  rim(yc + .001, G);
 
   /* top half, built closed, then swung open on its back edge */
   const T = new THREE.Group();
   const top = loft(200, 64, (t, u, c) => {
     const x = xs(t), p1 = phiCut(x), p2 = Math.PI - p1, phi = p1 + (p2 - p1) * u, p = pt(x, phi);
     const [g, e] = score(x, p.z - zoff(x)), up = smooth(.25, .45, p.y);
-    p.y += (-g * .045 + e * .03) * up;
-    const fl = smooth(.5, .72, fbm(x * 5, p.z * 6, 7)) * smooth(.25, .42, p.y);                        // patchy flour on the crown
-    c.copy(cMain).lerp(cLight, smooth(.3, .1, p.y) * .5).lerp(cDark, (e * .8 + smooth(.25, 1, Math.abs(x) / (L / 2)) * .3) * up);
-    c.lerp(cFlour, fl * .55 * (1 - g)).lerp(cScore, g * up);
+    p.y += (-g * .05 + e * .03) * up;
+    const near = Math.max(g, e, smooth(.38, .44, p.y) * .6), fl = smooth(.55, .62, fbm(x * 25, p.z * 25, 7)) * smooth(.25, .42, p.y) * (.35 + .65 * near);                        // patchy flour on the crown
+    c.copy(cMain).lerp(cLight, smooth(.3, .1, p.y) * .5).lerp(cDark, (e + smooth(.25, 1, Math.abs(x) / (L / 2)) * .3) * up);
+    c.lerp(cFlour, fl * .6).lerp(cScore, g * up);
     c.offsetHSL(0, 0, (fbm(x * 5, p.y * 8, p.z * 8) - .5) * .12); return p;
   });
   T.add(mesh(top, crust));
-  T.add(mesh(cutFace(yc), crumb));
+  T.add(mesh(cutFace(yc), crumb)); rim(yc - .001, T);
   // hinge on the back edge: rotate about the line (y = yc, z = -zc) so the front lifts ~13 mm
   const hz = zoff(0) - zc(0), P = new THREE.Group(); P.position.set(0, yc, hz); T.position.set(0, -yc, -hz); P.add(T); P.rotation.x = -.32; G.add(P);
 
@@ -90,29 +93,30 @@ export function build() {
     const b = mesh(g, new THREE.MeshPhysicalMaterial({ color: 0xf1dc8a, roughness: .35, clearcoat: .4, side: THREE.DoubleSide })); b.position.y = yc; G.add(b); }
 
   /* ham: three slices folded in waves, each rolling over the cut edge in a soft fold */
-  const ham = new THREE.MeshPhysicalMaterial({ vertexColors: true, roughness: .45, clearcoat: .35, clearcoatRoughness: .4, sheen: .4, sheenColor: new THREE.Color(0xffd6d0), side: THREE.DoubleSide,
+  const ham = new THREE.MeshPhysicalMaterial({ vertexColors: true, roughness: .5, clearcoat: .12, clearcoatRoughness: .4, sheen: .4, sheenColor: new THREE.Color(0xffd6d0), side: THREE.DoubleSide,
     bumpMap: tex(bumpCanvas({ n: 900, crack: 0 }), { repeat: [3, 3], color: false }), bumpScale: .5 });
   [[-1.22, -.32, .025, 1], [-.45, .45, .055, 2], [.32, 1.22, .035, 3]].forEach(([xa, xb, yb, seed]) => {
-    const rf = .045, S1 = 1, ret = .16, Ltot = S1 + Math.PI * rf + ret, pink = new THREE.Color(0xe9a5a1), fat = new THREE.Color(0xf6d3cc);
+    const rf = .04, drop = .05, pink = new THREE.Color(0xe79c9a), fat = new THREE.Color(0xf6d3cc);
     const g = loft(48, 40, (t, v, c) => {
-      const x = xa + (xb - xa) * t, zf = zoff(x) + zc(x) + .11 + .05 * (fbm(x * 3, seed, 1) - .5), zb = zoff(x) - zc(x) * .85;
-      const span = zf - zb, s = v * (span + Math.PI * rf + ret);
-      const wave = .018 * Math.sin(x * 8 + seed * 2) + .008 * Math.sin(x * 19 + seed);
+      const x = xa + (xb - xa) * t, zf = zoff(x) + zc(x) + .03 + .04 * (fbm(x * 3, seed, 1) - .5), zb = zoff(x) - zc(x) * .85;
+      const span = zf - zb, s = v * (span + Math.PI / 2 * rf + drop);
+      const wave = .035 * Math.sin(x * 8 + seed * 2) + .01 * Math.sin(x * 19 + seed);
       const yB = yc + yb + wave + .01 * Math.sin(t * Math.PI);
       let z, y;
       if (s < span) { z = zb + s; y = yB + (s / span) ** 3 * -.01; }
-      else if (s < span + Math.PI * rf) { const a = (s - span) / rf; z = zf + rf * Math.sin(a); y = yB - .01 - rf + rf * Math.cos(a); }
-      else { z = zf - (s - span - Math.PI * rf); y = yB - .01 - 2 * rf; }
+      else if (s < span + Math.PI / 2 * rf) { const a = (s - span) / rf; z = zf + rf * Math.sin(a); y = yB - .01 - rf + rf * Math.cos(a); }
+      else { const h = s - span - Math.PI / 2 * rf; z = zf + rf - h * .15; y = yB - .01 - rf - h; }   // hanging fold over the bottom crust
       // slice ends curl down a little
       y -= .02 * (smooth(.85, 1, t) + smooth(.15, 0, t));
       c.copy(pink).lerp(fat, smooth(.08, 0, Math.min(t, 1 - t)) * .9).offsetHSL(0, 0, (fbm(x * 9, s * 9, seed) - .5) * .06);
-      return V(x, Math.max(y, yc + .002), z);
+      return V(x, s < span ? Math.max(y, yc + .002) : y, z);
     });
     G.add(mesh(g, ham));
+    const g2 = g.clone(); g2.translate(0, -.018, -.01); G.add(mesh(g2, ham));   // second slice under it: ~2 mm layers
   });
 
   /* emmental: two slices with eyes, front edges showing past the ham */
-  const cheese = new THREE.MeshPhysicalMaterial({ color: 0xf2e0a0, roughness: .5, clearcoat: .2 });
+  const cheese = new THREE.MeshPhysicalMaterial({ color: 0xf2dc8e, roughness: .55, clearcoat: .1 });
   [[-.62, 1.4], [.55, 2.7]].forEach(([cx, seed]) => {
     const w = .78, d = .5, s = new THREE.Shape(); s.moveTo(-w / 2, -d / 2); s.lineTo(w / 2, -d / 2); s.lineTo(w / 2, d / 2); s.lineTo(-w / 2, d / 2); s.closePath();
     let r = seed * 100; const rnd = () => (r = (r * 16807) % 2147483647) / 2147483647;
@@ -120,18 +124,19 @@ export function build() {
     // a bitten-out eye on the front edge, as cheese slices show
     const g = new THREE.ExtrudeGeometry(s, { depth: .018, bevelEnabled: true, bevelThickness: .004, bevelSize: .004, bevelSegments: 2, curveSegments: 16 });
     g.rotateX(-Math.PI / 2);
-    const m = mesh(g, cheese); m.position.set(cx, yc + .1, zoff(cx) + zc(cx) - d / 2 + .05); m.rotation.y = (seed - 2) * .05; G.add(m);
+    const m = mesh(g, cheese); m.position.set(cx, yc + .085, zoff(cx) + zc(cx) - d / 2 + .02); m.rotation.y = (seed - 2) * .05; G.add(m);
   });
 
   /* kraft sandwich bag around the back half: rounded sleeve, clear window on top, folded and labelled end */
   {
-    const xm = -.25, xe = -1.62, hw = .5, hh = .29, rc = .13, ny = hh + .01;
+    const xm = -.25, xe = -1.62, hw = .37, hh = .26, rc = .13, ny = hh + .005;
     const kc = mkCanvas(1024, 1024), g = kc.getContext('2d');
     g.fillStyle = '#b58b5c'; g.fillRect(0, 0, 1024, 1024);
     let r = 21; const rnd = () => (r = (r * 16807) % 2147483647) / 2147483647;
     for (let k = 0; k < 9000; k++) { g.fillStyle = rnd() > .5 ? 'rgba(120,85,50,.12)' : 'rgba(215,180,135,.12)'; g.fillRect(rnd() * 1024, rnd() * 1024, 1 + rnd() * 10, 1); }   // fibres
     // window: u around the sleeve with the top face centred at u = .5; v along x
-    g.clearRect(1024 * .41, 1024 * .2, 1024 * .18, 1024 * .5);
+    g.clearRect(1024 * .19, 1024 * .24, 1024 * .12, 1024 * .58);
+    for (const u of [.08, .44, .62, .9]) { g.fillStyle = 'rgba(90,60,30,.25)'; g.fillRect(1024 * u, 0, 3, 1024); g.fillStyle = 'rgba(240,210,170,.25)'; g.fillRect(1024 * u + 3, 0, 3, 1024); }
     g.fillStyle = '#7a5530'; g.font = '700 40px "IBM Plex Sans", Arial'; g.textAlign = 'center';
     g.save(); g.translate(1024 * .2, 512); g.rotate(-Math.PI / 2); g.fillText('LORDVILLE BAKERY · FRESH TODAY', 0, 0); g.restore();
     const kraft = new THREE.MeshStandardMaterial({ map: tex(kc), roughness: .9, alphaTest: .5, side: THREE.DoubleSide,
@@ -145,13 +150,13 @@ export function build() {
     const bag = loft(70, 96, (t, u, c) => {
       const x = xm + (xe - xm) * t, [z, y] = per(u);
       const fin = smooth(.82, 1, t), mouth = smooth(.08, 0, t);
-      const wr = 1 + .02 * (fbm(u * 10, x * 6, 2) - .5) + mouth * .06;
+      const wr = 1 + .02 * (fbm(u * 10, x * 6, 2) - .5) + mouth * .04 - .03 * smooth(.6, 1, Math.sin(u * Math.PI * 2 - Math.PI / 2)) * (1 - fin);   // top sags a little
       c.set(0xffffff);
       return V(x, ny + y * wr * (1 - fin * .93), z * wr * (1 + fin * .05));
     });
     { const uvs = bag.attributes.uv; for (let i = 0; i < uvs.count; i++) { const iu = i % 97, ix = Math.floor(i / 97); uvs.setXY(i, iu / 96, ix / 70); } }
     G.add(mesh(bag, kraft));
-    const win = loft(30, 24, (t, u, c) => { const x = xm + (xe - xm) * (.18 + t * .54), [z, y] = per(.4 + u * .2); c.set(0xffffff); return V(x, ny + y * .995, z * .995); });
+    const win = loft(30, 24, (t, u, c) => { const x = xm + (xe - xm) * (.18 + t * .58), [z, y] = per(.19 + u * .12); c.set(0xffffff); return V(x, ny + y * .995, z * .995); });
     G.add(mesh(win, new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: .08, transmission: .92, thickness: .002, transparent: true, opacity: .35, clearcoat: 1, side: THREE.DoubleSide })));
     // folded-over closed end and its label
     const flap = mesh(new THREE.BoxGeometry(.32, .012, hw * 2.05), kraft); flap.position.set(xe + .14, ny + .03, 0); flap.rotation.z = .04; G.add(flap);
