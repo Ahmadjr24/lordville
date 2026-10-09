@@ -11,6 +11,7 @@ export const CATEGORIES = [
   { id: 'gear', name: 'Gear' },
   { id: 'tools', name: 'Tools' },
   { id: 'contraband', name: 'Contraband' },
+  { id: 'food', name: 'Food' },
 ];
 
 export const ASSETS = [
@@ -424,6 +425,55 @@ export const ASSETS = [
       'Holosun-style red dot with side buttons, solar panel and turrets on a riser',
       'Flip-up front and rear sights, bronze barrel nut, QD sling sockets',
       'Olive-drab angled foregrip, black PMAG with waffle band and flared floorplate',
+    ],
+  },
+  {
+    id: 'seeded-roll', code: 'FD-001', name: 'Seeded breakfast roll', category: 'food', added: '2026-10-09',
+    pose: { rotY: 0, lift: 0 }, view: { az: .45, el: .4 },
+    summary: 'Multigrain breakfast roll under a mixed seed crust, shown whole and cut in half.',
+    features: [
+      'Domed roll about 100 mm across and 58 mm tall with a flat, paler heel',
+      'Baked colour gradient from golden sides to a deep brown crown, blistered crust bump',
+      'Topping of sunflower and pumpkin kernels, sesame, brown and golden linseed, rolled oats',
+      'Second roll cut in half showing open, seed-flecked crumb and a thin crust rim',
+    ],
+  },
+  {
+    id: 'oat-cookie-pack', code: 'FD-002', name: 'Oat cookie pack', category: 'food', added: '2026-10-09',
+    pose: { rotY: 0, lift: 0 }, view: { az: .5, el: .35 },
+    summary: 'Printed flow-wrap roll of 22 oat cookies, torn open with three cookies out on the table.',
+    features: [
+      'Glossy printed OPP tube, 70 mm across and 200 mm long, with a crimp-sealed fin and back seal',
+      'Torn-open end with a ragged, flared film edge and a metallised inner face',
+      'Front print: logo panel, title, oat-flake badge, cookie illustration; back: ingredients, nutrition, barcode',
+      'Stack of 22 cookies inside, the next one in view at the open end',
+      'Cookies about 62 mm by 9 mm: craggy domed tops, hairline cracks, oat flakes, sugar sparkle, darker edges',
+      'Crumbs scattered on the table',
+    ],
+  },
+  {
+    id: 'bakery-sandwich', code: 'FD-003', name: 'Bakery lunch sandwich', category: 'food', added: '2026-10-09',
+    pose: { rotY: 0, lift: 0 }, view: { az: .55, el: .35 },
+    summary: 'Jambon-beurre on a half baguette tradition, split and filled, half in a kraft window bag.',
+    features: [
+      '280 mm half baguette with a flattened base, three grigne scores with raised ears and patchy flour',
+      'Split low along the front and hinged at the back, top lifted to show the filling',
+      'Open crumb on both cut faces, uneven butter smear',
+      'Three ham slices folded in waves over the cut edge, two emmental slices with eyes',
+      'Kraft sandwich bag with fibre texture, clear window, folded end and printed label',
+    ],
+  },
+  {
+    id: 'soup-flask', code: 'FD-004', name: 'Garden soup flask', category: 'food', added: '2026-10-09',
+    pose: { rotY: 0, lift: 0 }, view: { az: .35, el: .45 },
+    summary: 'Vacuum-insulated 470 ml stainless food jar, opened, full of garden vegetable soup with the folding spoon in it.',
+    features: [
+      'Food-jar profile: 98 mm base band, 94 mm body, two grip grooves around a raised belly band',
+      'Black badge with a polished border on the belly band, dark neck seal, threaded neck',
+      'Bead-blasted stainless with circumferential brushing; polished inner wall',
+      'Screw lid (doubles as a bowl) and grey inner stopper with silicone seal set beside the jar',
+      'Tomato-based soup with carrot dice, peas, courgette, celery, potato, herb flecks and oil droplets',
+      'Folding stainless spoon, unfolded, resting in the soup',
     ],
   },
 ];
